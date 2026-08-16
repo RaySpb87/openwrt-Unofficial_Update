@@ -1,0 +1,18 @@
+--- configure.ac.before920	2026-08-14 22:39:12.531874990 +0300
++++ dropbear-2024.85/configure.ac	2026-08-14 22:39:12.539877306 +0300
+@@ -7,6 +7,7 @@
+ 
+ AC_PREREQ([2.59])
+ AC_INIT
++AC_CONFIG_AUX_DIR([src])
+ 
+ # Record which revision is being built
+ if test -s "`which hg`" && test -d "$srcdir/.hg"; then
+@@ -837,7 +838,6 @@
+ # flags that should be set in Makefile but not for configure tests
+ CFLAGS="$CFLAGS $LATE_CFLAGS"
+ 
+-AC_CONFIG_AUX_DIR([src])
+ 
+ AC_CONFIG_HEADERS([config.h:src/config.h.in])
+ AC_CONFIG_FILES(Makefile $LIBTOM_FILES test/Makefile)
