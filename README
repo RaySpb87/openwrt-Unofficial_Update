@@ -1,4 +1,38 @@
-  _______                     ________        __
+# OpenWrt Unofficial Update (19.07.10UU)
+
+Hello everyone!
+
+OpenWrt is developing rapidly, but there's a downside: old but still perfectly capable devices with limited memory (4/32 and 8/64 MB) often get "left behind". 
+Without updates, with minor bugs and, worst of all, with security vulnerabilities.
+
+**Goal of this project:** Experimental life extension for the old-timers! We update the system kernel and key packages to current versions, patching known bugs and critical vulnerabilities.
+
+---
+
+### IMPORTANT DISCLAIMER
+
+Please read this before using:
+
+1. This is an experiment. Things may not go as planned (up to and including getting a "brick"). Use at your own risk.
+2. I am not a professional programmer or network engineer. An AI agent actively helps me solve complex tasks. We learn and experiment together.
+3. No 100% guarantees. This project cannot guarantee complete elimination of all vulnerabilities or perfect stability, even if packages are updated to the required versions.
+4. Common sense: If you need a guaranteed reliable and secure router for critical tasks — please buy a modern model with official manufacturer support.
+
+But if you're not afraid to get your hands dirty, enjoy digging through `logread`, and don't fear the word `sysupgrade` — welcome to the club!
+
+---
+
+### Current Status
+
+* **Active branch:** `openwrt-19.07.10UU`
+* **Target platform:** `ramips`
+* **Project is being tested on devices with chipsets:**
+  * **RT5350** (e.g., D-Link DIR-320 B1)
+  * **MT7620**
+
+---
+
+_______                     ________        __
  |       |.-----.-----.-----.|  |  |  |.----.|  |_
  |   -   ||  _  |  -__|     ||  |  |  ||   _||   _|
  |_______||   __|_____|__|__||________||__|  |____|
