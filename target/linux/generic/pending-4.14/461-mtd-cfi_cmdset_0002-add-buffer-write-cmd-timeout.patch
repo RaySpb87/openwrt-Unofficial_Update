@@ -1,13 +1,8 @@
-From: George Kashperko <george@znau.edu.ua>
-Subject: Issue map read after Write Buffer Load command to ensure chip is ready to receive data.
-
-Signed-off-by: George Kashperko <george@znau.edu.ua>
----
- drivers/mtd/chips/cfi_cmdset_0002.c |    1 +
- 1 file changed, 1 insertion(+)
+diff --git a/drivers/mtd/chips/cfi_cmdset_0002.c b/drivers/mtd/chips/cfi_cmdset_0002.c
+index 554efc6d..af1b9e8e 100644
 --- a/drivers/mtd/chips/cfi_cmdset_0002.c
 +++ b/drivers/mtd/chips/cfi_cmdset_0002.c
-@@ -1838,6 +1838,7 @@ static int __xipram do_write_buffer(stru
+@@ -1849,6 +1849,7 @@ static int __xipram do_write_buffer(struct map_info *map, struct flchip *chip,
  
  	/* Write Buffer Load */
  	map_write(map, CMD(0x25), cmd_adr);

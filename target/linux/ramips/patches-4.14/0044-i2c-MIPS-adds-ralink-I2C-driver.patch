@@ -1,18 +1,6 @@
-From 723b8beaabf3c3c4b1ce69480141f1e926f3f3b2 Mon Sep 17 00:00:00 2001
-From: John Crispin <blogic@openwrt.org>
-Date: Sun, 27 Jul 2014 09:52:56 +0100
-Subject: [PATCH 44/53] i2c: MIPS: adds ralink I2C driver
-
-Signed-off-by: John Crispin <blogic@openwrt.org>
----
- .../devicetree/bindings/i2c/i2c-ralink.txt         |   27 ++
- drivers/i2c/busses/Kconfig                         |    4 +
- drivers/i2c/busses/Makefile                        |    1 +
- drivers/i2c/busses/i2c-ralink.c                    |  327 ++++++++++++++++++++
- 4 files changed, 359 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/i2c/i2c-ralink.txt
- create mode 100644 drivers/i2c/busses/i2c-ralink.c
-
+diff --git a/Documentation/devicetree/bindings/i2c/i2c-ralink.txt b/Documentation/devicetree/bindings/i2c/i2c-ralink.txt
+new file mode 100644
+index 00000000..8fa8ac38
 --- /dev/null
 +++ b/Documentation/devicetree/bindings/i2c/i2c-ralink.txt
 @@ -0,0 +1,27 @@
@@ -43,6 +31,8 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
 +		};
 +	};
 +};
+diff --git a/drivers/i2c/busses/Kconfig b/drivers/i2c/busses/Kconfig
+index 2619f1dc..e37df09f 100644
 --- a/drivers/i2c/busses/Kconfig
 +++ b/drivers/i2c/busses/Kconfig
 @@ -864,6 +864,11 @@ config I2C_RK3X
@@ -57,6 +47,8 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  config HAVE_S3C2410_I2C
  	bool
  	help
+diff --git a/drivers/i2c/busses/Makefile b/drivers/i2c/busses/Makefile
+index 2ce85765..dbdc43c9 100644
 --- a/drivers/i2c/busses/Makefile
 +++ b/drivers/i2c/busses/Makefile
 @@ -84,6 +84,7 @@ obj-$(CONFIG_I2C_PNX)		+= i2c-pnx.o
@@ -67,6 +59,9 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  obj-$(CONFIG_I2C_QUP)		+= i2c-qup.o
  obj-$(CONFIG_I2C_RIIC)		+= i2c-riic.o
  obj-$(CONFIG_I2C_RK3X)		+= i2c-rk3x.o
+diff --git a/drivers/i2c/busses/i2c-ralink.c b/drivers/i2c/busses/i2c-ralink.c
+new file mode 100644
+index 00000000..cc2b525d
 --- /dev/null
 +++ b/drivers/i2c/busses/i2c-ralink.c
 @@ -0,0 +1,435 @@

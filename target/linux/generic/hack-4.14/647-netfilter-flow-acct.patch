@@ -1,3 +1,5 @@
+diff --git a/include/net/netfilter/nf_flow_table.h b/include/net/netfilter/nf_flow_table.h
+index 7cfc3147..0deb2f1d 100644
 --- a/include/net/netfilter/nf_flow_table.h
 +++ b/include/net/netfilter/nf_flow_table.h
 @@ -163,6 +163,8 @@ struct nf_flow_table_hw {
@@ -9,6 +11,8 @@
  extern struct work_struct nf_flow_offload_hw_work;
  
  #define MODULE_ALIAS_NF_FLOWTABLE(family)	\
+diff --git a/net/netfilter/nf_flow_table_core.c b/net/netfilter/nf_flow_table_core.c
+index 9a7ea794..cfc659c5 100644
 --- a/net/netfilter/nf_flow_table_core.c
 +++ b/net/netfilter/nf_flow_table_core.c
 @@ -11,6 +11,7 @@
@@ -19,7 +23,7 @@
  
  struct flow_offload_entry {
  	struct flow_offload	flow;
-@@ -152,6 +153,22 @@ void flow_offload_free(struct flow_offlo
+@@ -152,6 +153,22 @@ void flow_offload_free(struct flow_offload *flow)
  }
  EXPORT_SYMBOL_GPL(flow_offload_free);
  
@@ -42,6 +46,8 @@
  static u32 flow_offload_hash(const void *data, u32 len, u32 seed)
  {
  	const struct flow_offload_tuple *tuple = data;
+diff --git a/net/netfilter/nf_flow_table_ip.c b/net/netfilter/nf_flow_table_ip.c
+index a0c11051..fa3d392a 100644
 --- a/net/netfilter/nf_flow_table_ip.c
 +++ b/net/netfilter/nf_flow_table_ip.c
 @@ -11,6 +11,7 @@
@@ -52,7 +58,7 @@
  /* For layer 4 checksum field offset. */
  #include <linux/tcp.h>
  #include <linux/udp.h>
-@@ -265,6 +266,7 @@ nf_flow_offload_ip_hook(void *priv, stru
+@@ -265,6 +266,7 @@ nf_flow_offload_ip_hook(void *priv, struct sk_buff *skb,
  	skb->dev = outdev;
  	nexthop = rt_nexthop(rt, flow->tuplehash[!dir].tuple.src_v4.s_addr);
  	skb_dst_set_noref(skb, &rt->dst);
@@ -60,7 +66,7 @@
  	neigh_xmit(NEIGH_ARP_TABLE, outdev, &nexthop, skb);
  
  	return NF_STOLEN;
-@@ -482,6 +484,7 @@ nf_flow_offload_ipv6_hook(void *priv, st
+@@ -482,6 +484,7 @@ nf_flow_offload_ipv6_hook(void *priv, struct sk_buff *skb,
  	skb->dev = outdev;
  	nexthop = rt6_nexthop(rt, &flow->tuplehash[!dir].tuple.src_v6);
  	skb_dst_set_noref(skb, &rt->dst);

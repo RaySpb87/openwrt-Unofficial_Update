@@ -1,12 +1,5 @@
-From: Gabor Juhos <juhosg@openwrt.org>
-Subject: mtd: add EOF marker support to the UBI layer
-
-Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
----
- drivers/mtd/ubi/attach.c | 25 ++++++++++++++++++++++---
- drivers/mtd/ubi/ubi.h    |  1 +
- 2 files changed, 23 insertions(+), 3 deletions(-)
-
+diff --git a/drivers/mtd/ubi/attach.c b/drivers/mtd/ubi/attach.c
+index 93ceea4f..28e71ba0 100644
 --- a/drivers/mtd/ubi/attach.c
 +++ b/drivers/mtd/ubi/attach.c
 @@ -939,6 +939,13 @@ static bool vol_ignored(int vol_id)
@@ -23,7 +16,7 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  /**
   * scan_peb - scan and process UBI headers of a PEB.
   * @ubi: UBI device description object
-@@ -971,9 +978,21 @@ static int scan_peb(struct ubi_device *u
+@@ -971,9 +978,21 @@ static int scan_peb(struct ubi_device *ubi, struct ubi_attach_info *ai,
  		return 0;
  	}
  
@@ -48,6 +41,8 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  	switch (err) {
  	case 0:
  		break;
+diff --git a/drivers/mtd/ubi/ubi.h b/drivers/mtd/ubi/ubi.h
+index f5ba97c4..41a0607f 100644
 --- a/drivers/mtd/ubi/ubi.h
 +++ b/drivers/mtd/ubi/ubi.h
 @@ -785,6 +785,7 @@ struct ubi_attach_info {

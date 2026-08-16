@@ -1,3 +1,5 @@
+diff --git a/arch/mips/include/asm/mach-ralink/mt7620.h b/arch/mips/include/asm/mach-ralink/mt7620.h
+index 66af4ccb..d0310a92 100644
 --- a/arch/mips/include/asm/mach-ralink/mt7620.h
 +++ b/arch/mips/include/asm/mach-ralink/mt7620.h
 @@ -137,4 +137,16 @@ static inline int mt7620_get_eco(void)

@@ -1,21 +1,8 @@
-From c9ef4ab0f54356ee9f91d9676ea0ec123840ddc7 Mon Sep 17 00:00:00 2001
-From: Felix Fietkau <nbd@nbd.name>
-Date: Fri, 7 Jul 2017 16:57:33 +0200
-Subject: kernel: do not build modules.order
-
-It is not needed for anything on the system and skipping this saves some
-build time, especially in cases where there is nothing to do.
-
-lede-commit: afc1675833a7bf5df094f59f7250369520646d04
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- Makefile               | 2 --
- scripts/Makefile.build | 2 +-
- 2 files changed, 1 insertion(+), 3 deletions(-)
-
+diff --git a/Makefile b/Makefile
+index 76552b20..d9565eef 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -1260,7 +1260,6 @@ endif
+@@ -1275,7 +1275,6 @@ endif
  
  PHONY += modules
  modules: $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),vmlinux) modules.builtin
@@ -23,7 +10,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	@$(kecho) '  Building modules, stage 2.';
  	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost
  
-@@ -1289,7 +1288,6 @@ _modinst_:
+@@ -1304,7 +1303,6 @@ _modinst_:
  		rm -f $(MODLIB)/build ; \
  		ln -s $(CURDIR) $(MODLIB)/build ; \
  	fi
@@ -31,6 +18,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	@cp -f $(objtree)/modules.builtin $(MODLIB)/
  	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modinst
  
+diff --git a/scripts/Makefile.build b/scripts/Makefile.build
+index f4b752cb..af0919ae 100644
 --- a/scripts/Makefile.build
 +++ b/scripts/Makefile.build
 @@ -94,7 +94,7 @@ modorder-target := $(obj)/modules.order

@@ -1,22 +1,5 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Sun, 7 Jan 2018 01:04:26 +0100
-Subject: [PATCH] netfilter: nf_tables: flow offload expression
-
-Add new instruction for the nf_tables VM that allows us to specify what
-flows are offloaded into a given flow table via name. This new
-instruction creates the flow entry and adds it to the flow table.
-
-Only established flows, ie. we have seen traffic in both directions, are
-added to the flow table. You can still decide to offload entries at a
-later stage via packet counting or checking the ct status in case you
-want to offload assured conntracks.
-
-This new extension depends on the conntrack subsystem.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- create mode 100644 net/netfilter/nft_flow_offload.c
-
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index d29c0441..5707cce8 100644
 --- a/include/uapi/linux/netfilter/nf_tables.h
 +++ b/include/uapi/linux/netfilter/nf_tables.h
 @@ -957,6 +957,17 @@ enum nft_ct_attributes {
@@ -37,9 +20,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  enum nft_limit_type {
  	NFT_LIMIT_PKTS,
  	NFT_LIMIT_PKT_BYTES
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 9b14d7f6..c478c05d 100644
 --- a/net/netfilter/Kconfig
 +++ b/net/netfilter/Kconfig
-@@ -515,6 +515,13 @@ config NFT_CT
+@@ -514,6 +514,13 @@ config NFT_CT
  	  This option adds the "ct" expression that you can use to match
  	  connection tracking information such as the flow state.
  
@@ -53,6 +38,8 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  config NFT_SET_RBTREE
  	tristate "Netfilter nf_tables rbtree set module"
  	help
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index bcef4f20..e06b3a75 100644
 --- a/net/netfilter/Makefile
 +++ b/net/netfilter/Makefile
 @@ -87,6 +87,7 @@ obj-$(CONFIG_NFT_META)		+= nft_meta.o
@@ -63,6 +50,9 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  obj-$(CONFIG_NFT_LIMIT)		+= nft_limit.o
  obj-$(CONFIG_NFT_NAT)		+= nft_nat.o
  obj-$(CONFIG_NFT_OBJREF)	+= nft_objref.o
+diff --git a/net/netfilter/nft_flow_offload.c b/net/netfilter/nft_flow_offload.c
+new file mode 100644
+index 00000000..dd38785d
 --- /dev/null
 +++ b/net/netfilter/nft_flow_offload.c
 @@ -0,0 +1,264 @@

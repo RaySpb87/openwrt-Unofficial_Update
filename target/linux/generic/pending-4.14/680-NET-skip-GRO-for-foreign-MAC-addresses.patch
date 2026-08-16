@@ -1,17 +1,8 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: net: replace GRO optimization patch with a new one that supports VLANs/bridges with different MAC addresses
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- include/linux/netdevice.h |  2 ++
- include/linux/skbuff.h    |  3 ++-
- net/core/dev.c            | 48 +++++++++++++++++++++++++++++++++++++++++++++++
- net/ethernet/eth.c        | 18 +++++++++++++++++-
- 4 files changed, 69 insertions(+), 2 deletions(-)
-
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 13b525ef..a227b472 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -1772,6 +1772,8 @@ struct net_device {
+@@ -1776,6 +1776,8 @@ struct net_device {
  	struct netdev_hw_addr_list	mc;
  	struct netdev_hw_addr_list	dev_addrs;
  
@@ -20,6 +11,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  #ifdef CONFIG_SYSFS
  	struct kset		*queues_kset;
  #endif
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 15026446..cbc1fa2f 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
 @@ -782,6 +782,7 @@ struct sk_buff {
@@ -30,9 +23,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  #ifdef CONFIG_NET_SCHED
  	__u16			tc_index;	/* traffic control index */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a0413f65..112c10be 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -4803,6 +4803,9 @@ static enum gro_result dev_gro_receive(s
+@@ -4809,6 +4809,9 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
  	enum gro_result ret;
  	int grow;
  
@@ -42,7 +37,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	if (netif_elide_gro(skb->dev))
  		goto normal;
  
-@@ -6288,6 +6291,48 @@ static void __netdev_adjacent_dev_unlink
+@@ -6294,6 +6297,48 @@ static void __netdev_adjacent_dev_unlink_neighbour(struct net_device *dev,
  					   &upper_dev->adj_list.lower);
  }
  
@@ -91,7 +86,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  static int __netdev_upper_dev_link(struct net_device *dev,
  				   struct net_device *upper_dev, bool master,
  				   void *upper_priv, void *upper_info)
-@@ -6326,6 +6371,7 @@ static int __netdev_upper_dev_link(struc
+@@ -6332,6 +6377,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
  	if (ret)
  		return ret;
  
@@ -99,7 +94,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	ret = call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
  					    &changeupper_info.info);
  	ret = notifier_to_errno(ret);
-@@ -6403,6 +6449,7 @@ void netdev_upper_dev_unlink(struct net_
+@@ -6409,6 +6455,7 @@ void netdev_upper_dev_unlink(struct net_device *dev,
  
  	__netdev_adjacent_dev_unlink_neighbour(dev, upper_dev);
  
@@ -107,7 +102,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
  				      &changeupper_info.info);
  }
-@@ -6967,6 +7014,7 @@ int dev_set_mac_address(struct net_devic
+@@ -6973,6 +7020,7 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
  	if (err)
  		return err;
  	dev->addr_assign_type = NET_ADDR_SET;
@@ -115,9 +110,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
  	add_device_randomness(dev->dev_addr, dev->addr_len);
  	return 0;
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 7e0e5f27..dc68d770 100644
 --- a/net/ethernet/eth.c
 +++ b/net/ethernet/eth.c
-@@ -144,6 +144,18 @@ u32 eth_get_headlen(void *data, unsigned
+@@ -144,6 +144,18 @@ u32 eth_get_headlen(void *data, unsigned int len)
  }
  EXPORT_SYMBOL(eth_get_headlen);
  
@@ -136,7 +133,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  /**
   * eth_type_trans - determine the packet's protocol ID.
   * @skb: received socket data
-@@ -172,8 +184,12 @@ __be16 eth_type_trans(struct sk_buff *sk
+@@ -172,8 +184,12 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
  			skb->pkt_type = PACKET_MULTICAST;
  	}
  	else if (unlikely(!ether_addr_equal_64bits(eth->h_dest,

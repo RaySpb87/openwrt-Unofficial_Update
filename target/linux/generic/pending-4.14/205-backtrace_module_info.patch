@@ -1,17 +1,8 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: kernel: when KALLSYMS is disabled, print module address + size for matching backtrace entries
-
-[john@phrozen.org: felix will add this to his upstream queue]
-
-lede-commit 53827cdc824556cda910b23ce5030c363b8f1461
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- lib/vsprintf.c | 15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
-
+diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+index 83b16470..2e08bed8 100644
 --- a/lib/vsprintf.c
 +++ b/lib/vsprintf.c
-@@ -696,8 +696,10 @@ char *symbol_string(char *buf, char *end
+@@ -696,8 +696,10 @@ char *symbol_string(char *buf, char *end, void *ptr,
  		    struct printf_spec spec, const char *fmt)
  {
  	unsigned long value;
@@ -23,7 +14,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  #endif
  
  	if (fmt[1] == 'R')
-@@ -711,11 +713,16 @@ char *symbol_string(char *buf, char *end
+@@ -711,11 +713,16 @@ char *symbol_string(char *buf, char *end, void *ptr,
  		sprint_symbol(sym, value);
  	else
  		sprint_symbol_no_offset(sym, value);

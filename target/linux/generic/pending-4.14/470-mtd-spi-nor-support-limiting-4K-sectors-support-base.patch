@@ -1,22 +1,5 @@
-From: Felix Fietkau <nbd@nbd.name>
-Date: Sat, 4 Nov 2017 07:40:23 +0100
-Subject: [PATCH] mtd: spi-nor: support limiting 4K sectors support based on
- flash size
-
-Some devices need 4K sectors to be able to deal with small flash chips.
-For instance, w25x05 is 64 KiB in size, and without 4K sectors, the
-entire chip is just one erase block.
-On bigger flash chip sizes, using 4K sectors can significantly slow down
-many operations, including using a writable filesystem. There are several
-platforms where it makes sense to use a single kernel on both kinds of
-devices.
-
-To support this properly, allow configuring an upper flash chip size
-limit for 4K sectors support.
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
-
+diff --git a/drivers/mtd/spi-nor/Kconfig b/drivers/mtd/spi-nor/Kconfig
+index 14e8967c..1cb6061b 100644
 --- a/drivers/mtd/spi-nor/Kconfig
 +++ b/drivers/mtd/spi-nor/Kconfig
 @@ -39,6 +39,17 @@ config SPI_ASPEED_SMC
@@ -37,9 +20,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  config SPI_ATMEL_QUADSPI
  	tristate "Atmel Quad SPI Controller"
  	depends on ARCH_AT91 || (ARM && COMPILE_TEST && !ARCH_EBSA110)
+diff --git a/drivers/mtd/spi-nor/spi-nor.c b/drivers/mtd/spi-nor/spi-nor.c
+index 27ab253e..ddf26863 100644
 --- a/drivers/mtd/spi-nor/spi-nor.c
 +++ b/drivers/mtd/spi-nor/spi-nor.c
-@@ -2580,10 +2580,12 @@ static int spi_nor_select_erase(struct s
+@@ -2580,10 +2580,12 @@ static int spi_nor_select_erase(struct spi_nor *nor,
  
  #ifdef CONFIG_MTD_SPI_NOR_USE_4K_SECTORS
  	/* prefer "small sector" erase if possible */

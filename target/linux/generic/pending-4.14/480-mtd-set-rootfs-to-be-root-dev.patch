@@ -1,15 +1,5 @@
-From: Gabor Juhos <juhosg@openwrt.org>
-Subject: kernel/3.1[02]: move MTD root device setup code to mtdcore
-
-The current code only allows to automatically set
-root device on MTD partitions. Move the code to MTD
-core to allow to use it with all MTD devices.
-
-Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
----
- drivers/mtd/mtdcore.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
-
+diff --git a/drivers/mtd/mtdcore.c b/drivers/mtd/mtdcore.c
+index 3f04ecc0..8486b954 100644
 --- a/drivers/mtd/mtdcore.c
 +++ b/drivers/mtd/mtdcore.c
 @@ -41,6 +41,7 @@
@@ -20,7 +10,7 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  
  #include <linux/mtd/mtd.h>
  #include <linux/mtd/partitions.h>
-@@ -578,6 +579,15 @@ int add_mtd_device(struct mtd_info *mtd)
+@@ -580,6 +581,15 @@ int add_mtd_device(struct mtd_info *mtd)
  	   of this try_ nonsense, and no bitching about it
  	   either. :) */
  	__module_get(THIS_MODULE);

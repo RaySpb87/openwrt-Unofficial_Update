@@ -1,27 +1,8 @@
-From e3d8676f5722b7622685581e06e8f53e6138e3ab Mon Sep 17 00:00:00 2001
-From: Felix Fietkau <nbd@nbd.name>
-Date: Sat, 15 Jul 2017 23:42:36 +0200
-Subject: use -ffunction-sections, -fdata-sections and --gc-sections
-
-In combination with kernel symbol export stripping this significantly reduces
-the kernel image size. Used on both ARM and MIPS architectures.
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
-Signed-off-by: Jonas Gorski <jogo@openwrt.org>
-Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
----
- Makefile                          | 10 +++----
- arch/arm/Kconfig                  |  1 +
- arch/arm/boot/compressed/Makefile |  1 +
- arch/arm/kernel/vmlinux.lds.S     | 26 ++++++++--------
- arch/mips/Kconfig                 |  1 +
- arch/mips/kernel/vmlinux.lds.S    |  4 +--
- include/asm-generic/vmlinux.lds.h | 63 ++++++++++++++++++++-------------------
- 7 files changed, 55 insertions(+), 51 deletions(-)
-
+diff --git a/Makefile b/Makefile
+index d9565eef..1538aef3 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -272,6 +272,11 @@ else
+@@ -279,6 +279,11 @@ else
  scripts/Kbuild.include: ;
  include scripts/Kbuild.include
  
@@ -33,7 +14,7 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  # Read KERNELRELEASE from include/config/kernel.release (if it exists)
  KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
  KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(SUBLEVEL)))$(EXTRAVERSION)
-@@ -785,11 +790,6 @@ ifdef CONFIG_DEBUG_SECTION_MISMATCH
+@@ -797,11 +802,6 @@ ifdef CONFIG_DEBUG_SECTION_MISMATCH
  KBUILD_CFLAGS += $(call cc-option, -fno-inline-functions-called-once)
  endif
  
@@ -45,9 +26,11 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  # arch Makefile may override CC so keep this after arch Makefile is included
  NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)
  CHECKFLAGS     += $(NOSTDINC_FLAGS)
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index 5473db09..389cc6a8 100644
 --- a/arch/arm/Kconfig
 +++ b/arch/arm/Kconfig
-@@ -92,6 +92,7 @@ config ARM
+@@ -93,6 +93,7 @@ config ARM
  	select HAVE_UID16
  	select HAVE_VIRT_CPU_ACCOUNTING_GEN
  	select IRQ_FORCED_THREADING
@@ -55,6 +38,8 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  	select MODULES_USE_ELF_REL
  	select NO_BOOTMEM
  	select OF_EARLY_FLATTREE if OF
+diff --git a/arch/arm/boot/compressed/Makefile b/arch/arm/boot/compressed/Makefile
+index d912628e..dfb7de12 100644
 --- a/arch/arm/boot/compressed/Makefile
 +++ b/arch/arm/boot/compressed/Makefile
 @@ -105,6 +105,7 @@ ifeq ($(CONFIG_FUNCTION_TRACER),y)
@@ -65,6 +50,8 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  
  # -fstack-protector-strong triggers protection checks in this code,
  # but it is being used too early to link to meaningful stack_chk logic.
+diff --git a/arch/arm/kernel/vmlinux.lds.S b/arch/arm/kernel/vmlinux.lds.S
+index b7a27a56..49803f4d 100644
 --- a/arch/arm/kernel/vmlinux.lds.S
 +++ b/arch/arm/kernel/vmlinux.lds.S
 @@ -31,7 +31,7 @@
@@ -178,9 +165,11 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  		__pv_table_end = .;
  	}
  	.init.data : {
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+index 63c09baa..b176eb46 100644
 --- a/arch/mips/Kconfig
 +++ b/arch/mips/Kconfig
-@@ -40,6 +40,7 @@ config MIPS
+@@ -41,6 +41,7 @@ config MIPS
  	select HAVE_CBPF_JIT if (!64BIT && !CPU_MICROMIPS)
  	select HAVE_EBPF_JIT if (64BIT && !CPU_MICROMIPS)
  	select HAVE_CC_STACKPROTECTOR
@@ -188,6 +177,8 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  	select HAVE_CONTEXT_TRACKING
  	select HAVE_COPY_THREAD_TLS
  	select HAVE_C_RECORDMCOUNT
+diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
+index 968c5765..09770a4d 100644
 --- a/arch/mips/kernel/vmlinux.lds.S
 +++ b/arch/mips/kernel/vmlinux.lds.S
 @@ -72,7 +72,7 @@ SECTIONS
@@ -208,6 +199,8 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  		__mips_machines_end = .;
  	}
  
+diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
+index 45fe7295..9f30eff2 100644
 --- a/include/asm-generic/vmlinux.lds.h
 +++ b/include/asm-generic/vmlinux.lds.h
 @@ -105,7 +105,7 @@

@@ -1,20 +1,5 @@
-From: Jonas Gorski <jogo@openwrt.org>
-Subject: net: provide defines for _POLICY_FAILED until all code is updated
-
-Upstream introduced ICMPV6_POLICY_FAIL for code 5 of destination
-unreachable, conflicting with our name.
-
-Add appropriate defines to allow our code to build with the new
-name until we have updated our local patches for older kernels
-and userspace packages.
-
-Signed-off-by: Jonas Gorski <jogo@openwrt.org>
----
- include/uapi/linux/fib_rules.h | 2 ++
- include/uapi/linux/icmpv6.h    | 2 ++
- include/uapi/linux/rtnetlink.h | 2 ++
- 3 files changed, 6 insertions(+)
-
+diff --git a/include/uapi/linux/fib_rules.h b/include/uapi/linux/fib_rules.h
+index f3ff86a9..7f0236d9 100644
 --- a/include/uapi/linux/fib_rules.h
 +++ b/include/uapi/linux/fib_rules.h
 @@ -80,6 +80,8 @@ enum {
@@ -26,6 +11,8 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  #define FR_ACT_MAX (__FR_ACT_MAX - 1)
  
  #endif
+diff --git a/include/uapi/linux/icmpv6.h b/include/uapi/linux/icmpv6.h
+index caf8dc01..f24394eb 100644
 --- a/include/uapi/linux/icmpv6.h
 +++ b/include/uapi/linux/icmpv6.h
 @@ -119,6 +119,8 @@ struct icmp6hdr {
@@ -37,6 +24,8 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  /*
   *	Codes for Time Exceeded
   */
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 6d7f4de8..c8f9bf2d 100644
 --- a/include/uapi/linux/rtnetlink.h
 +++ b/include/uapi/linux/rtnetlink.h
 @@ -225,6 +225,8 @@ enum {

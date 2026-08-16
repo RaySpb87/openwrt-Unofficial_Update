@@ -1,25 +1,5 @@
-From 4e645b47c4f000a503b9c90163ad905786b9bc1d Mon Sep 17 00:00:00 2001
-From: Florian Westphal <fw@strlen.de>
-Date: Fri, 1 Dec 2017 00:21:02 +0100
-Subject: [PATCH 02/11] netfilter: core: make nf_unregister_net_hooks simple
- wrapper again
-
-This reverts commit d3ad2c17b4047
-("netfilter: core: batch nf_unregister_net_hooks synchronize_net calls").
-
-Nothing wrong with it.  However, followup patch will delay freeing of hooks
-with call_rcu, so all synchronize_net() calls become obsolete and there
-is no need anymore for this batching.
-
-This revert causes a temporary performance degradation when destroying
-network namespace, but its resolved with the upcoming call_rcu conversion.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/core.c | 59 +++-------------------------------------------------
- 1 file changed, 3 insertions(+), 56 deletions(-)
-
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index aff54f5c..65bdac1d 100644
 --- a/net/netfilter/core.c
 +++ b/net/netfilter/core.c
 @@ -396,63 +396,10 @@ EXPORT_SYMBOL(nf_register_net_hooks);
@@ -29,8 +9,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 -	struct nf_hook_entries *to_free[16], *p;
 -	struct nf_hook_entries __rcu **pp;
 -	unsigned int i, j, n;
-+	unsigned int i;
- 
+-
 -	mutex_lock(&nf_hook_mutex);
 -	for (i = 0; i < hookcount; i++) {
 -		pp = nf_hook_entry_head(net, &reg[i]);
@@ -80,7 +59,8 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 -			for (i = 0; i < j; i++)
 -				kvfree(to_free[i]);
 -		}
--
++	unsigned int i;
+ 
 -		reg += n;
 -		hookcount -= n;
 -	} while (hookcount > 0);

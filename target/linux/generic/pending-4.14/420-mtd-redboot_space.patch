@@ -1,17 +1,8 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: add patch for including unpartitioned space in the rootfs partition for redboot devices (if applicable)
-
-[john@phrozen.org: used by ixp and others]
-
-lede-commit: 394918851f84e4d00fa16eb900e7700e95091f00
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- drivers/mtd/redboot.c | 19 +++++++++++++------
- 1 file changed, 13 insertions(+), 6 deletions(-)
-
+diff --git a/drivers/mtd/redboot.c b/drivers/mtd/redboot.c
+index 663c7aeb..fe3df743 100644
 --- a/drivers/mtd/redboot.c
 +++ b/drivers/mtd/redboot.c
-@@ -265,14 +265,21 @@ static int parse_redboot_partitions(stru
+@@ -265,14 +265,21 @@ static int parse_redboot_partitions(struct mtd_info *master,
  #endif
  		names += strlen(names)+1;
  

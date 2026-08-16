@@ -1,31 +1,8 @@
-From 1186af457cc186c5ed01708da71b1ffbdf0a2638 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
-Date: Tue, 20 Nov 2018 09:55:45 +0100
-Subject: [PATCH] mtd: keep original flags for every struct mtd_info
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-When allocating a new partition mtd subsystem runs internal tests in the
-allocate_partition(). They may result in modifying specified flags (e.g.
-dropping some /features/ like write access).
-
-Those constraints don't have to be necessary true for subpartitions. It
-may happen parent partition isn't block aligned (effectively disabling
-write access) while subpartition may fit blocks nicely. In such case all
-checks should be run again (starting with original flags value).
-
-Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
-Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
----
- drivers/mtd/mtdcore.c   | 2 ++
- drivers/mtd/mtdpart.c   | 3 ++-
- include/linux/mtd/mtd.h | 1 +
- 3 files changed, 5 insertions(+), 1 deletion(-)
-
+diff --git a/drivers/mtd/mtdcore.c b/drivers/mtd/mtdcore.c
+index 78345f3c..3f04ecc0 100644
 --- a/drivers/mtd/mtdcore.c
 +++ b/drivers/mtd/mtdcore.c
-@@ -650,6 +650,8 @@ static void mtd_set_dev_defaults(struct
+@@ -652,6 +652,8 @@ static void mtd_set_dev_defaults(struct mtd_info *mtd)
  	} else {
  		pr_debug("mtd device won't show a device symlink in sysfs\n");
  	}
@@ -34,9 +11,11 @@ Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
  }
  
  /**
+diff --git a/drivers/mtd/mtdpart.c b/drivers/mtd/mtdpart.c
+index c0e57ff7..c484dbd8 100644
 --- a/drivers/mtd/mtdpart.c
 +++ b/drivers/mtd/mtdpart.c
-@@ -394,7 +394,8 @@ static struct mtd_part *allocate_partiti
+@@ -394,7 +394,8 @@ static struct mtd_part *allocate_partition(struct mtd_info *parent,
  
  	/* set up the MTD object for this partition */
  	slave->mtd.type = parent->type;
@@ -46,6 +25,8 @@ Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
  	slave->mtd.size = part->size;
  	slave->mtd.writesize = parent->writesize;
  	slave->mtd.writebufsize = parent->writebufsize;
+diff --git a/include/linux/mtd/mtd.h b/include/linux/mtd/mtd.h
+index aadc2ee0..b8d4bd25 100644
 --- a/include/linux/mtd/mtd.h
 +++ b/include/linux/mtd/mtd.h
 @@ -218,6 +218,7 @@ struct mtd_debug_info {

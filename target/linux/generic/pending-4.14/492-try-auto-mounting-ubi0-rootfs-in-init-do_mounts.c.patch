@@ -1,14 +1,8 @@
-From: Daniel Golle <daniel@makrotopia.org>
-Subject: try auto-mounting ubi0:rootfs in init/do_mounts.c
-
-Signed-off-by: Daniel Golle <daniel@makrotopia.org>
----
- init/do_mounts.c | 26 +++++++++++++++++++++++++-
- 1 file changed, 25 insertions(+), 1 deletion(-)
-
+diff --git a/init/do_mounts.c b/init/do_mounts.c
+index 7cf4f6da..50c8bd3e 100644
 --- a/init/do_mounts.c
 +++ b/init/do_mounts.c
-@@ -437,7 +437,28 @@ retry:
+@@ -437,7 +437,28 @@ void __init mount_block_root(char *name, int flags)
  out:
  	put_page(page);
  }

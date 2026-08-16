@@ -1,16 +1,5 @@
-From: Vijay Viswanath <vviswana@codeaurora.org>
-Date: Wed, 27 Sep 2017 11:04:42 +0530
-Subject: [PATCH v2 3/4] mmc: Kconfig: Enable CONFIG_MMC_SDHCI_IO_ACCESSORS
-
-Enable CONFIG_MMC_SDHCI_IO_ACCESSORS so that SDHC controller specific
-register read and write APIs, if registered, can be used.
-
-Signed-off-by: Vijay Viswanath <vviswana@codeaurora.org>
-Acked-by: Adrian Hunter <adrian.hunter@intel.com>
----
- drivers/mmc/host/Kconfig | 1 +
- 1 file changed, 1 insertion(+)
-
+diff --git a/drivers/mmc/host/Kconfig b/drivers/mmc/host/Kconfig
+index d318b82c..556070da 100644
 --- a/drivers/mmc/host/Kconfig
 +++ b/drivers/mmc/host/Kconfig
 @@ -310,6 +310,7 @@ config MMC_SDHCI_BCM_KONA

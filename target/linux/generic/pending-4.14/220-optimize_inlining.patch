@@ -1,6 +1,8 @@
+diff --git a/arch/arm/kernel/atags.h b/arch/arm/kernel/atags.h
+index 20110022..067e12ed 100644
 --- a/arch/arm/kernel/atags.h
 +++ b/arch/arm/kernel/atags.h
-@@ -5,7 +5,7 @@ void convert_to_tag_list(struct tag *tag
+@@ -5,7 +5,7 @@ void convert_to_tag_list(struct tag *tags);
  const struct machine_desc *setup_machine_tags(phys_addr_t __atags_pointer,
  	unsigned int machine_nr);
  #else
@@ -9,9 +11,11 @@
  setup_machine_tags(phys_addr_t __atags_pointer, unsigned int machine_nr)
  {
  	early_print("no ATAGS support: can't continue\n");
+diff --git a/arch/arm64/include/asm/cpufeature.h b/arch/arm64/include/asm/cpufeature.h
+index 3e9d042d..7abc711c 100644
 --- a/arch/arm64/include/asm/cpufeature.h
 +++ b/arch/arm64/include/asm/cpufeature.h
-@@ -347,7 +347,7 @@ static inline bool cpu_have_feature(unsi
+@@ -347,7 +347,7 @@ static inline bool cpu_have_feature(unsigned int num)
  }
  
  /* System capability check for constant caps */
@@ -20,7 +24,7 @@
  {
  	if (num >= ARM64_NCAPS)
  		return false;
-@@ -361,7 +361,7 @@ static inline bool cpus_have_cap(unsigne
+@@ -361,7 +361,7 @@ static inline bool cpus_have_cap(unsigned int num)
  	return test_bit(num, cpu_hwcaps);
  }
  
@@ -29,9 +33,11 @@
  {
  	if (static_branch_likely(&arm64_const_caps_ready))
  		return __cpus_have_const_cap(num);
+diff --git a/arch/mips/include/asm/bitops.h b/arch/mips/include/asm/bitops.h
+index fa57cef1..a78ef92e 100644
 --- a/arch/mips/include/asm/bitops.h
 +++ b/arch/mips/include/asm/bitops.h
-@@ -462,7 +462,7 @@ static inline void __clear_bit_unlock(un
+@@ -462,7 +462,7 @@ static inline void __clear_bit_unlock(unsigned long nr, volatile unsigned long *
   * Return the bit position (0..63) of the most significant 1 bit in a word
   * Returns -1 if no 1 bit exists
   */
@@ -40,7 +46,7 @@
  {
  	int num;
  
-@@ -528,7 +528,7 @@ static inline unsigned long __fls(unsign
+@@ -528,7 +528,7 @@ static inline unsigned long __fls(unsigned long word)
   * Returns 0..SZLONG-1
   * Undefined if no bit exists, so code should check against 0 first.
   */
@@ -49,9 +55,11 @@
  {
  	return __fls(word & -word);
  }
+diff --git a/arch/mips/kernel/cpu-bugs64.c b/arch/mips/kernel/cpu-bugs64.c
+index c9e8622b..d771fbe2 100644
 --- a/arch/mips/kernel/cpu-bugs64.c
 +++ b/arch/mips/kernel/cpu-bugs64.c
-@@ -42,8 +42,8 @@ static inline void align_mod(const int a
+@@ -42,8 +42,8 @@ static inline void align_mod(const int align, const int mod)
  		: GCC_IMM_ASM() (align), GCC_IMM_ASM() (mod));
  }
  
@@ -62,9 +70,11 @@
  {
  	unsigned long flags;
  	int m1, m2;
+diff --git a/arch/powerpc/kernel/prom_init.c b/arch/powerpc/kernel/prom_init.c
+index 7f049a60..7105c0aa 100644
 --- a/arch/powerpc/kernel/prom_init.c
 +++ b/arch/powerpc/kernel/prom_init.c
-@@ -474,14 +474,14 @@ static int __init prom_next_node(phandle
+@@ -474,14 +474,14 @@ static int __init prom_next_node(phandle *nodep)
  	}
  }
  
@@ -82,9 +92,11 @@
  {
  	return call_prom("getproplen", 2, 1, node, ADDR(pname));
  }
+diff --git a/arch/s390/include/asm/cpacf.h b/arch/s390/include/asm/cpacf.h
+index 056670eb..f94d0cd2 100644
 --- a/arch/s390/include/asm/cpacf.h
 +++ b/arch/s390/include/asm/cpacf.h
-@@ -184,7 +184,7 @@ static inline int __cpacf_check_opcode(u
+@@ -184,7 +184,7 @@ static inline int __cpacf_check_opcode(unsigned int opcode)
  	}
  }
  
@@ -93,6 +105,22 @@
  {
  	if (__cpacf_check_opcode(opcode)) {
  		__cpacf_query(opcode, mask);
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 12c3b9c0..c558dda3 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -297,9 +297,6 @@ config ZONE_DMA32
+ config AUDIT_ARCH
+ 	def_bool y if X86_64
+ 
+-config ARCH_SUPPORTS_OPTIMIZED_INLINING
+-	def_bool y
+-
+ config ARCH_SUPPORTS_DEBUG_PAGEALLOC
+ 	def_bool y
+ 
+diff --git a/arch/x86/Kconfig.debug b/arch/x86/Kconfig.debug
+index bec0952c..cb77a9e9 100644
 --- a/arch/x86/Kconfig.debug
 +++ b/arch/x86/Kconfig.debug
 @@ -284,20 +284,6 @@ config CPA_DEBUG
@@ -116,6 +144,22 @@
  config DEBUG_ENTRY
  	bool "Debug low-level entry code"
  	depends on DEBUG_KERNEL
+diff --git a/include/linux/compiler-gcc.h b/include/linux/compiler-gcc.h
+index e7c2378e..0ea90b4f 100644
+--- a/include/linux/compiler-gcc.h
++++ b/include/linux/compiler-gcc.h
+@@ -90,8 +90,7 @@
+  * of extern inline functions at link time.
+  * A lot of inline functions can cause havoc with function tracing.
+  */
+-#if !defined(CONFIG_ARCH_SUPPORTS_OPTIMIZED_INLINING) ||		\
+-    !defined(CONFIG_OPTIMIZE_INLINING) || (__GNUC__ < 4)
++#if !defined(CONFIG_OPTIMIZE_INLINING) || (__GNUC__ < 4)
+ #define inline \
+ 	inline __attribute__((always_inline, unused)) notrace __gnu_inline
+ #else
+diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
+index a152e907..431899e6 100644
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
 @@ -305,6 +305,20 @@ config HEADERS_CHECK
@@ -139,27 +183,3 @@
  config DEBUG_SECTION_MISMATCH
  	bool "Enable full Section mismatch analysis"
  	help
---- a/arch/x86/Kconfig
-+++ b/arch/x86/Kconfig
-@@ -296,9 +296,6 @@ config ZONE_DMA32
- config AUDIT_ARCH
- 	def_bool y if X86_64
- 
--config ARCH_SUPPORTS_OPTIMIZED_INLINING
--	def_bool y
--
- config ARCH_SUPPORTS_DEBUG_PAGEALLOC
- 	def_bool y
- 
---- a/include/linux/compiler-gcc.h
-+++ b/include/linux/compiler-gcc.h
-@@ -90,8 +90,7 @@
-  * of extern inline functions at link time.
-  * A lot of inline functions can cause havoc with function tracing.
-  */
--#if !defined(CONFIG_ARCH_SUPPORTS_OPTIMIZED_INLINING) ||		\
--    !defined(CONFIG_OPTIMIZE_INLINING) || (__GNUC__ < 4)
-+#if !defined(CONFIG_OPTIMIZE_INLINING) || (__GNUC__ < 4)
- #define inline \
- 	inline __attribute__((always_inline, unused)) notrace __gnu_inline
- #else

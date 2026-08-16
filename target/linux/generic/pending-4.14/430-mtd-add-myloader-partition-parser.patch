@@ -1,15 +1,5 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Add myloader partition table parser
-
-[john@phozen.org: shoud be upstreamable]
-
-lede-commit: d8bf22859b51faa09d22c056fe221a45d2f7a3b8
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/mtd/Kconfig  | 16 ++++++++++++++++
- drivers/mtd/Makefile |  1 +
- 2 files changed, 17 insertions(+)
-
+diff --git a/drivers/mtd/Kconfig b/drivers/mtd/Kconfig
+index 4185e047..cb55144d 100644
 --- a/drivers/mtd/Kconfig
 +++ b/drivers/mtd/Kconfig
 @@ -178,6 +178,22 @@ menu "Partition parsers"
@@ -35,6 +25,8 @@ Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
  comment "User Modules And Translation Layers"
  
  #
+diff --git a/drivers/mtd/Makefile b/drivers/mtd/Makefile
+index 24016efc..28752f73 100644
 --- a/drivers/mtd/Makefile
 +++ b/drivers/mtd/Makefile
 @@ -16,6 +16,7 @@ obj-$(CONFIG_MTD_AFS_PARTS)	+= afs.o

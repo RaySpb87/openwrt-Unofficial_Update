@@ -1,15 +1,8 @@
-From: Felix Fietkau <nbd@nbd.name>
-Date: Sun, 25 Feb 2018 15:37:27 +0100
-Subject: [PATCH] netfilter: nf_flow_table: make flow_offload_dead inline
-
-It is too trivial to keep as a separate exported function
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
-
+diff --git a/include/net/netfilter/nf_flow_table.h b/include/net/netfilter/nf_flow_table.h
+index ab408adb..5aa49524 100644
 --- a/include/net/netfilter/nf_flow_table.h
 +++ b/include/net/netfilter/nf_flow_table.h
-@@ -103,7 +103,10 @@ void nf_flow_table_cleanup(struct net *n
+@@ -103,7 +103,10 @@ void nf_flow_table_cleanup(struct net *net, struct net_device *dev);
  int nf_flow_table_init(struct nf_flowtable *flow_table);
  void nf_flow_table_free(struct nf_flowtable *flow_table);
  
@@ -21,9 +14,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  int nf_flow_snat_port(const struct flow_offload *flow,
  		      struct sk_buff *skb, unsigned int thoff,
+diff --git a/net/netfilter/nf_flow_table_core.c b/net/netfilter/nf_flow_table_core.c
+index cf68a279..0f82fb21 100644
 --- a/net/netfilter/nf_flow_table_core.c
 +++ b/net/netfilter/nf_flow_table_core.c
-@@ -113,12 +113,6 @@ void flow_offload_free(struct flow_offlo
+@@ -113,12 +113,6 @@ void flow_offload_free(struct flow_offload *flow)
  }
  EXPORT_SYMBOL_GPL(flow_offload_free);
  

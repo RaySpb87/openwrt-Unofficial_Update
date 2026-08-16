@@ -1,17 +1,8 @@
-From: Wei Yongjun <weiyongjun1@huawei.com>
-Date: Wed, 10 Jan 2018 07:04:54 +0000
-Subject: [PATCH] netfilter: nf_tables: fix a typo in nf_tables_getflowtable()
-
-Fix a typo, we should check 'flowtable' instead of 'table'.
-
-Fixes: 3b49e2e94e6e ("netfilter: nf_tables: add flow table netlink frontend")
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index e474342a..9a52c7d9 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
-@@ -5439,7 +5439,7 @@ static int nf_tables_getflowtable(struct
+@@ -5585,7 +5585,7 @@ static int nf_tables_getflowtable(struct net *net, struct sock *nlsk,
  
  	flowtable = nf_tables_flowtable_lookup(table, nla[NFTA_FLOWTABLE_NAME],
  					       genmask);

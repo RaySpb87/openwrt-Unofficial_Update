@@ -1,16 +1,8 @@
-From: Gabor Juhos <juhosg@openwrt.org>
-Subject: kernel/3.10: allow to use partition parsers for rootfs and firmware split
-
-lede-commit: 3b71cd94bc9517bc25267dccb393b07d4b54564e
-Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
----
- drivers/mtd/mtdpart.c          | 37 +++++++++++++++++++++++++++++++++++++
- include/linux/mtd/partitions.h |  2 ++
- 2 files changed, 39 insertions(+)
-
+diff --git a/drivers/mtd/mtdpart.c b/drivers/mtd/mtdpart.c
+index cb6ef06e..3cf37fde 100644
 --- a/drivers/mtd/mtdpart.c
 +++ b/drivers/mtd/mtdpart.c
-@@ -804,6 +804,7 @@ run_parsers_by_type(struct mtd_part *sla
+@@ -804,6 +804,7 @@ run_parsers_by_type(struct mtd_part *slave, enum mtd_parser_type type)
  
  static void split_firmware(struct mtd_info *master, struct mtd_part *part)
  {
@@ -18,7 +10,7 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  }
  
  static void mtd_partition_split(struct mtd_info *master, struct mtd_part *part)
-@@ -813,6 +814,12 @@ static void mtd_partition_split(struct m
+@@ -813,6 +814,12 @@ static void mtd_partition_split(struct mtd_info *master, struct mtd_part *part)
  	if (rootfs_found)
  		return;
  
@@ -31,6 +23,8 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  	if (IS_ENABLED(CONFIG_MTD_SPLIT_FIRMWARE) &&
  	    !strcmp(part->mtd.name, SPLIT_FIRMWARE_NAME) &&
  	    !of_find_property(mtd_get_of_node(&part->mtd), "compatible", NULL))
+diff --git a/include/linux/mtd/partitions.h b/include/linux/mtd/partitions.h
+index 3c537f44..2ad57525 100644
 --- a/include/linux/mtd/partitions.h
 +++ b/include/linux/mtd/partitions.h
 @@ -75,6 +75,8 @@ struct mtd_part_parser_data {

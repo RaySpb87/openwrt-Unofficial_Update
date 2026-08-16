@@ -1,34 +1,5 @@
-From 8c873e2199700c2de7dbd5eedb9d90d5f109462b Mon Sep 17 00:00:00 2001
-From: Florian Westphal <fw@strlen.de>
-Date: Fri, 1 Dec 2017 00:21:04 +0100
-Subject: [PATCH 04/11] netfilter: core: free hooks with call_rcu
-
-Giuseppe Scrivano says:
-  "SELinux, if enabled, registers for each new network namespace 6
-    netfilter hooks."
-
-Cost for this is high.  With synchronize_net() removed:
-   "The net benefit on an SMP machine with two cores is that creating a
-   new network namespace takes -40% of the original time."
-
-This patch replaces synchronize_net+kvfree with call_rcu().
-We store rcu_head at the tail of a structure that has no fixed layout,
-i.e. we cannot use offsetof() to compute the start of the original
-allocation.  Thus store this information right after the rcu head.
-
-We could simplify this by just placing the rcu_head at the start
-of struct nf_hook_entries.  However, this structure is used in
-packet processing hotpath, so only place what is needed for that
-at the beginning of the struct.
-
-Reported-by: Giuseppe Scrivano <gscrivan@redhat.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/linux/netfilter.h | 19 +++++++++++++++----
- net/netfilter/core.c      | 34 ++++++++++++++++++++++++++++------
- 2 files changed, 43 insertions(+), 10 deletions(-)
-
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index b24e9b10..792f6d53 100644
 --- a/include/linux/netfilter.h
 +++ b/include/linux/netfilter.h
 @@ -77,17 +77,28 @@ struct nf_hook_entry {
@@ -64,9 +35,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	 */
  };
  
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index a0767d91..bc862e7f 100644
 --- a/net/netfilter/core.c
 +++ b/net/netfilter/core.c
-@@ -74,7 +74,8 @@ static struct nf_hook_entries *allocate_
+@@ -74,7 +74,8 @@ static struct nf_hook_entries *allocate_hook_entries_size(u16 num)
  	struct nf_hook_entries *e;
  	size_t alloc = sizeof(*e) +
  		       sizeof(struct nf_hook_entry) * num +
@@ -76,7 +49,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  
  	if (num == 0)
  		return NULL;
-@@ -85,6 +86,30 @@ static struct nf_hook_entries *allocate_
+@@ -85,6 +86,30 @@ static struct nf_hook_entries *allocate_hook_entries_size(u16 num)
  	return e;
  }
  
@@ -107,7 +80,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  static unsigned int accept_all(void *priv,
  			       struct sk_buff *skb,
  			       const struct nf_hook_state *state)
-@@ -292,9 +317,8 @@ int nf_register_net_hook(struct net *net
+@@ -292,9 +317,8 @@ int nf_register_net_hook(struct net *net, const struct nf_hook_ops *reg)
  #ifdef HAVE_JUMP_LABEL
  	static_key_slow_inc(&nf_hooks_needed[reg->pf][reg->hooknum]);
  #endif
@@ -118,7 +91,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	return 0;
  }
  EXPORT_SYMBOL(nf_register_net_hook);
-@@ -362,10 +386,8 @@ void nf_unregister_net_hook(struct net *
+@@ -362,10 +386,8 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
  	if (!p)
  		return;
  

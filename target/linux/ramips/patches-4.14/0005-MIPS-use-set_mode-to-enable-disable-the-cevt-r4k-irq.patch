@@ -1,34 +1,5 @@
-From ce3d4a4111a5f7e6b4e74bceae5faa6ce388e8ec Mon Sep 17 00:00:00 2001
-From: John Crispin <blogic@openwrt.org>
-Date: Sun, 14 Jul 2013 23:08:11 +0200
-Subject: [PATCH 05/53] MIPS: use set_mode() to enable/disable the cevt-r4k
- irq
-
-Signed-off-by: John Crispin <blogic@openwrt.org>
----
- arch/mips/ralink/Kconfig |    5 +++++
- 1 file changed, 5 insertions(+)
-
---- a/arch/mips/ralink/Kconfig
-+++ b/arch/mips/ralink/Kconfig
-@@ -1,12 +1,17 @@
- # SPDX-License-Identifier: GPL-2.0
- if RALINK
- 
-+config CEVT_SYSTICK_QUIRK
-+	bool
-+	default n
-+
- config CLKEVT_RT3352
- 	bool
- 	depends on SOC_RT305X || SOC_MT7620
- 	default y
- 	select TIMER_OF
- 	select CLKSRC_MMIO
-+	select CEVT_SYSTICK_QUIRK
- 
- config RALINK_ILL_ACC
- 	bool
+diff --git a/arch/mips/kernel/cevt-r4k.c b/arch/mips/kernel/cevt-r4k.c
+index dd6a18bc..9212cfeb 100644
 --- a/arch/mips/kernel/cevt-r4k.c
 +++ b/arch/mips/kernel/cevt-r4k.c
 @@ -15,6 +15,26 @@
@@ -80,3 +51,25 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  
  	return 0;
  }
+diff --git a/arch/mips/ralink/Kconfig b/arch/mips/ralink/Kconfig
+index fae36f03..2e3b1315 100644
+--- a/arch/mips/ralink/Kconfig
++++ b/arch/mips/ralink/Kconfig
+@@ -1,12 +1,17 @@
+ # SPDX-License-Identifier: GPL-2.0
+ if RALINK
+ 
++config CEVT_SYSTICK_QUIRK
++	bool
++	default n
++
+ config CLKEVT_RT3352
+ 	bool
+ 	depends on SOC_RT305X || SOC_MT7620
+ 	default y
+ 	select TIMER_OF
+ 	select CLKSRC_MMIO
++	select CEVT_SYSTICK_QUIRK
+ 
+ config RALINK_ILL_ACC
+ 	bool

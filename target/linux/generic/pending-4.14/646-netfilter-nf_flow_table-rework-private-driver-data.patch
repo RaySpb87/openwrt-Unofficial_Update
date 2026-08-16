@@ -1,14 +1,5 @@
-From: Felix Fietkau <nbd@nbd.name>
-Date: Fri, 27 Apr 2018 14:42:14 +0200
-Subject: [PATCH] netfilter: nf_flow_table: rework private driver data
-
-Move the timeout out of the union, since it can be shared between the
-driver and the stack. Add a private pointer that the driver can use to
-point to its own data structures
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
-
+diff --git a/include/net/netfilter/nf_flow_table.h b/include/net/netfilter/nf_flow_table.h
+index 3a461a5a..7cfc3147 100644
 --- a/include/net/netfilter/nf_flow_table.h
 +++ b/include/net/netfilter/nf_flow_table.h
 @@ -81,9 +81,10 @@ struct flow_offload_tuple_rhash {

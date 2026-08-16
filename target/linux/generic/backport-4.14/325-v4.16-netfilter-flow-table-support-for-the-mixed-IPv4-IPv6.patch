@@ -1,14 +1,5 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Sun, 7 Jan 2018 01:04:22 +0100
-Subject: [PATCH] netfilter: flow table support for the mixed IPv4/IPv6 family
-
-This patch adds the IPv6 flow table type, that implements the datapath
-flow table to forward IPv6 traffic.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- create mode 100644 net/netfilter/nf_flow_table_inet.c
-
+diff --git a/include/net/netfilter/nf_flow_table.h b/include/net/netfilter/nf_flow_table.h
+index 161f71ca..b22b2208 100644
 --- a/include/net/netfilter/nf_flow_table.h
 +++ b/include/net/netfilter/nf_flow_table.h
 @@ -111,6 +111,11 @@ struct flow_ports {
@@ -23,9 +14,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  #define MODULE_ALIAS_NF_FLOWTABLE(family)	\
  	MODULE_ALIAS("nf-flowtable-" __stringify(family))
  
+diff --git a/net/ipv4/netfilter/nf_flow_table_ipv4.c b/net/ipv4/netfilter/nf_flow_table_ipv4.c
+index ac56c0f0..b2d01eb2 100644
 --- a/net/ipv4/netfilter/nf_flow_table_ipv4.c
 +++ b/net/ipv4/netfilter/nf_flow_table_ipv4.c
-@@ -202,7 +202,7 @@ static bool nf_flow_exceeds_mtu(struct s
+@@ -202,7 +202,7 @@ static bool nf_flow_exceeds_mtu(struct sk_buff *skb, const struct rtable *rt)
  	return false;
  }
  
@@ -34,7 +27,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  nf_flow_offload_ip_hook(void *priv, struct sk_buff *skb,
  			const struct nf_hook_state *state)
  {
-@@ -254,6 +254,7 @@ nf_flow_offload_ip_hook(void *priv, stru
+@@ -254,6 +254,7 @@ nf_flow_offload_ip_hook(void *priv, struct sk_buff *skb,
  
  	return NF_STOLEN;
  }
@@ -42,9 +35,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  
  static struct nf_flowtable_type flowtable_ipv4 = {
  	.family		= NFPROTO_IPV4,
+diff --git a/net/ipv6/netfilter/nf_flow_table_ipv6.c b/net/ipv6/netfilter/nf_flow_table_ipv6.c
+index d7d073bb..0c3b9d32 100644
 --- a/net/ipv6/netfilter/nf_flow_table_ipv6.c
 +++ b/net/ipv6/netfilter/nf_flow_table_ipv6.c
-@@ -196,7 +196,7 @@ static bool nf_flow_exceeds_mtu(struct s
+@@ -196,7 +196,7 @@ static bool nf_flow_exceeds_mtu(struct sk_buff *skb, const struct rt6_info *rt)
  	return false;
  }
  
@@ -53,7 +48,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  nf_flow_offload_ipv6_hook(void *priv, struct sk_buff *skb,
  			  const struct nf_hook_state *state)
  {
-@@ -248,6 +248,7 @@ nf_flow_offload_ipv6_hook(void *priv, st
+@@ -248,6 +248,7 @@ nf_flow_offload_ipv6_hook(void *priv, struct sk_buff *skb,
  
  	return NF_STOLEN;
  }
@@ -61,9 +56,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  
  static struct nf_flowtable_type flowtable_ipv6 = {
  	.family		= NFPROTO_IPV6,
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 4e4ef55c..9b14d7f6 100644
 --- a/net/netfilter/Kconfig
 +++ b/net/netfilter/Kconfig
-@@ -667,6 +667,14 @@ endif # NF_TABLES_NETDEV
+@@ -666,6 +666,14 @@ endif # NF_TABLES_NETDEV
  
  endif # NF_TABLES
  
@@ -78,9 +75,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  config NF_FLOW_TABLE
  	tristate "Netfilter flow table module"
  	help
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index c0a6224a..bcef4f20 100644
 --- a/net/netfilter/Makefile
 +++ b/net/netfilter/Makefile
-@@ -112,6 +112,7 @@ obj-$(CONFIG_NFT_FWD_NETDEV)	+= nft_fwd_
+@@ -112,6 +112,7 @@ obj-$(CONFIG_NFT_FWD_NETDEV)	+= nft_fwd_netdev.o
  
  # flow table infrastructure
  obj-$(CONFIG_NF_FLOW_TABLE)	+= nf_flow_table.o
@@ -88,6 +87,9 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  
  # generic X tables 
  obj-$(CONFIG_NETFILTER_XTABLES) += x_tables.o xt_tcpudp.o
+diff --git a/net/netfilter/nf_flow_table_inet.c b/net/netfilter/nf_flow_table_inet.c
+new file mode 100644
+index 00000000..281209ae
 --- /dev/null
 +++ b/net/netfilter/nf_flow_table_inet.c
 @@ -0,0 +1,48 @@

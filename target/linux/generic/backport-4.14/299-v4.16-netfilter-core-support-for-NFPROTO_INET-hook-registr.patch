@@ -1,20 +1,8 @@
-From cb7ccd835ebb333669e400f99c650e4f3abf11c0 Mon Sep 17 00:00:00 2001
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Sat, 9 Dec 2017 15:30:26 +0100
-Subject: [PATCH 11/11] netfilter: core: support for NFPROTO_INET hook
- registration
-
-Expand NFPROTO_INET in two hook registrations, one for NFPROTO_IPV4 and
-another for NFPROTO_IPV6. Hence, we handle NFPROTO_INET from the core.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/core.c | 53 +++++++++++++++++++++++++++++++++++++++++++---------
- 1 file changed, 44 insertions(+), 9 deletions(-)
-
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index ca0ee1a1..6fa6b2e0 100644
 --- a/net/netfilter/core.c
 +++ b/net/netfilter/core.c
-@@ -310,12 +310,13 @@ nf_hook_entry_head(struct net *net, int
+@@ -310,12 +310,13 @@ nf_hook_entry_head(struct net *net, int pf, unsigned int hooknum,
  	return NULL;
  }
  
@@ -30,7 +18,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  #ifndef CONFIG_NETFILTER_INGRESS
  		if (reg->hooknum == NF_NETDEV_INGRESS)
  			return -EOPNOTSUPP;
-@@ -325,7 +326,7 @@ int nf_register_net_hook(struct net *net
+@@ -325,7 +326,7 @@ int nf_register_net_hook(struct net *net, const struct nf_hook_ops *reg)
  			return -EINVAL;
  	}
  
@@ -39,7 +27,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	if (!pp)
  		return -EINVAL;
  
-@@ -344,17 +345,16 @@ int nf_register_net_hook(struct net *net
+@@ -344,17 +345,16 @@ int nf_register_net_hook(struct net *net, const struct nf_hook_ops *reg)
  		return PTR_ERR(new_hooks);
  
  #ifdef CONFIG_NETFILTER_INGRESS
@@ -59,7 +47,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  
  /*
   * nf_remove_net_hook - remove a hook from blob
-@@ -395,12 +395,13 @@ static void nf_remove_net_hook(struct nf
+@@ -395,12 +395,13 @@ static void nf_remove_net_hook(struct nf_hook_entries *old,
  	}
  }
  
@@ -75,7 +63,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	if (!pp)
  		return;
  
-@@ -412,7 +413,7 @@ void nf_unregister_net_hook(struct net *
+@@ -412,7 +413,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
  		return;
  	}
  
@@ -84,7 +72,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  
  	p = __nf_hook_entries_try_shrink(pp);
  	mutex_unlock(&nf_hook_mutex);
-@@ -422,8 +423,42 @@ void nf_unregister_net_hook(struct net *
+@@ -422,8 +423,42 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
  	nf_queue_nf_hook_drop(net);
  	nf_hook_entries_free(p);
  }

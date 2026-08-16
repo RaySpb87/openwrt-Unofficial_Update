@@ -1,12 +1,5 @@
-From: Felix Fietkau <nbd@nbd.name>
-Date: Fri, 16 Feb 2018 09:42:32 +0100
-Subject: [PATCH] netfilter: nf_flow_table: clean up flow_offload_alloc
-
-Reduce code duplication and make it much easier to read
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
-
+diff --git a/net/netfilter/nf_flow_table.c b/net/netfilter/nf_flow_table.c
+index 462696d8..c7fffe07 100644
 --- a/net/netfilter/nf_flow_table.c
 +++ b/net/netfilter/nf_flow_table.c
 @@ -16,6 +16,38 @@ struct flow_offload_entry {
@@ -48,7 +41,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  struct flow_offload *
  flow_offload_alloc(struct nf_conn *ct, struct nf_flow_route *route)
  {
-@@ -40,65 +72,8 @@ flow_offload_alloc(struct nf_conn *ct, s
+@@ -40,65 +72,8 @@ flow_offload_alloc(struct nf_conn *ct, struct nf_flow_route *route)
  
  	entry->ct = ct;
  

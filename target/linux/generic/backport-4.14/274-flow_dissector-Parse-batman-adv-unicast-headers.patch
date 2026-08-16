@@ -1,31 +1,5 @@
-From: Sven Eckelmann <sven.eckelmann@openmesh.com>
-Date: Thu, 21 Dec 2017 10:17:42 +0100
-Subject: [PATCH] flow_dissector: Parse batman-adv unicast headers
-
-The batman-adv unicast packets contain a full layer 2 frame in encapsulated
-form. The flow dissector must therefore be able to parse the batman-adv
-unicast header to reach the layer 2+3 information.
-
-  +--------------------+
-  | ip(v6)hdr          |
-  +--------------------+
-  | inner ethhdr       |
-  +--------------------+
-  | batadv unicast hdr |
-  +--------------------+
-  | outer ethhdr       |
-  +--------------------+
-
-The obtained information from the upper layer can then be used by RPS to
-schedule the processing on separate cores. This allows better distribution
-of multiple flows from the same neighbor to different cores.
-
-Signed-off-by: Sven Eckelmann <sven.eckelmann@openmesh.com>
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
-Acked-by: Willem de Bruijn <willemb@google.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
-
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index b4dddb68..5e450691 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
 @@ -22,6 +22,7 @@
@@ -36,7 +10,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  
  static void dissector_set_key(struct flow_dissector *flow_dissector,
  			      enum flow_dissector_key_id key_id)
-@@ -338,6 +339,57 @@ __skb_flow_dissect_gre(const struct sk_b
+@@ -338,6 +339,57 @@ __skb_flow_dissect_gre(const struct sk_buff *skb,
  	return FLOW_DISSECT_RET_PROTO_AGAIN;
  }
  
@@ -94,7 +68,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  static void
  __skb_flow_dissect_tcp(const struct sk_buff *skb,
  		       struct flow_dissector *flow_dissector,
-@@ -722,6 +774,11 @@ proto_again:
+@@ -722,6 +774,11 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
  					       nhoff, hlen);
  		break;
  

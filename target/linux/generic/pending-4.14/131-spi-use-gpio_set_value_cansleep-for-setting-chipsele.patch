@@ -1,15 +1,8 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: spi: use gpio_set_value_cansleep for setting chipselect GPIO
-
-Sleeping is safe inside spi_transfer_one_message, and some GPIO chips
-need to sleep for setting values
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
-
+diff --git a/drivers/spi/spi.c b/drivers/spi/spi.c
+index 1031c8e3..bfcf28fd 100644
 --- a/drivers/spi/spi.c
 +++ b/drivers/spi/spi.c
-@@ -741,7 +741,7 @@ static void spi_set_cs(struct spi_device
+@@ -741,7 +741,7 @@ static void spi_set_cs(struct spi_device *spi, bool enable)
  		enable = !enable;
  
  	if (gpio_is_valid(spi->cs_gpio)) {

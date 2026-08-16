@@ -1,3 +1,5 @@
+diff --git a/arch/mips/ralink/irq-gic.c b/arch/mips/ralink/irq-gic.c
+index bda576f2..14e05142 100644
 --- a/arch/mips/ralink/irq-gic.c
 +++ b/arch/mips/ralink/irq-gic.c
 @@ -15,6 +15,12 @@

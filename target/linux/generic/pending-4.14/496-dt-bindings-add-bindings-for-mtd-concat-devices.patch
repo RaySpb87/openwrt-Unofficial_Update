@@ -1,16 +1,6 @@
-From 5734c6669fba7ddb5ef491ccff7159d15dba0b59 Mon Sep 17 00:00:00 2001
-From: Bernhard Frauendienst <kernel@nospam.obeliks.de>
-Date: Wed, 5 Sep 2018 01:32:51 +0200
-Subject: [PATCH 496/497] dt-bindings: add bindings for mtd-concat devices
-
-Document virtual mtd-concat device bindings.
-
-Signed-off-by: Bernhard Frauendienst <kernel@nospam.obeliks.de>
----
- .../devicetree/bindings/mtd/mtd-concat.txt    | 36 +++++++++++++++++++
- 1 file changed, 36 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/mtd/mtd-concat.txt
-
+diff --git a/Documentation/devicetree/bindings/mtd/mtd-concat.txt b/Documentation/devicetree/bindings/mtd/mtd-concat.txt
+new file mode 100644
+index 00000000..2daf3157
 --- /dev/null
 +++ b/Documentation/devicetree/bindings/mtd/mtd-concat.txt
 @@ -0,0 +1,36 @@

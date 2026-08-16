@@ -1,6 +1,8 @@
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+index cc37145a..dedf4b19 100644
 --- a/drivers/net/phy/at803x.c
 +++ b/drivers/net/phy/at803x.c
-@@ -354,6 +354,14 @@ static int at803x_config_init(struct phy
+@@ -354,6 +354,14 @@ static int at803x_config_init(struct phy_device *phydev)
  				AT803X_DEBUG_TX_CLK_DLY_EN, 0);
  	}
  
@@ -15,7 +17,7 @@
  	return 0;
  }
  
-@@ -392,6 +400,7 @@ static void at803x_link_change_notify(st
+@@ -392,6 +400,7 @@ static void at803x_link_change_notify(struct phy_device *phydev)
  {
  	struct at803x_priv *priv = phydev->priv;
  	struct at803x_platform_data *pdata;
@@ -23,7 +25,7 @@
  	pdata = dev_get_platdata(&phydev->mdio.dev);
  
  	/*
-@@ -421,8 +430,19 @@ static void at803x_link_change_notify(st
+@@ -421,8 +430,19 @@ static void at803x_link_change_notify(struct phy_device *phydev)
  	} else {
  		priv->phy_reset = false;
  	}

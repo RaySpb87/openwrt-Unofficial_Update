@@ -1,28 +1,12 @@
-From b2b8b06f18281c637da274b18e330bc52351637e Mon Sep 17 00:00:00 2001
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Date: Tue, 2 Jan 2018 10:58:27 +0000
-Subject: [PATCH] net: mdiobus: add unlocked accessors
-
-commit 34dc08e4be208539b7c4aa8154a610e1736705e8 upstream.
-
-Add unlocked versions of the bus accessors, which allows access to the
-bus with all the tracing. These accessors validate that the bus mutex
-is held, which is a basic requirement for all mii bus accesses.
-
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/phy/mdio_bus.c | 65 +++++++++++++++++++++++++++++++-------
- include/linux/mdio.h       |  3 ++
- 2 files changed, 56 insertions(+), 12 deletions(-)
-
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index a9a0638a..978dde70 100644
 --- a/drivers/net/phy/mdio_bus.c
 +++ b/drivers/net/phy/mdio_bus.c
-@@ -501,6 +501,55 @@ struct phy_device *mdiobus_scan(struct m
+@@ -505,6 +505,55 @@ struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr)
+ }
  EXPORT_SYMBOL(mdiobus_scan);
  
- /**
++/**
 + * __mdiobus_read - Unlocked version of the mdiobus_read function
 + * @bus: the mii_bus struct
 + * @addr: the phy address
@@ -71,11 +55,10 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
 +}
 +EXPORT_SYMBOL(__mdiobus_write);
 +
-+/**
+ /**
   * mdiobus_read_nested - Nested version of the mdiobus_read function
   * @bus: the mii_bus struct
-  * @addr: the phy address
-@@ -520,11 +569,9 @@ int mdiobus_read_nested(struct mii_bus *
+@@ -525,11 +574,9 @@ int mdiobus_read_nested(struct mii_bus *bus, int addr, u32 regnum)
  	BUG_ON(in_interrupt());
  
  	mutex_lock_nested(&bus->mdio_lock, MDIO_MUTEX_NESTED);
@@ -88,7 +71,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	return retval;
  }
  EXPORT_SYMBOL(mdiobus_read_nested);
-@@ -546,11 +593,9 @@ int mdiobus_read(struct mii_bus *bus, in
+@@ -551,11 +598,9 @@ int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum)
  	BUG_ON(in_interrupt());
  
  	mutex_lock(&bus->mdio_lock);
@@ -101,7 +84,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	return retval;
  }
  EXPORT_SYMBOL(mdiobus_read);
-@@ -576,11 +621,9 @@ int mdiobus_write_nested(struct mii_bus
+@@ -581,11 +626,9 @@ int mdiobus_write_nested(struct mii_bus *bus, int addr, u32 regnum, u16 val)
  	BUG_ON(in_interrupt());
  
  	mutex_lock_nested(&bus->mdio_lock, MDIO_MUTEX_NESTED);
@@ -114,7 +97,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	return err;
  }
  EXPORT_SYMBOL(mdiobus_write_nested);
-@@ -603,11 +646,9 @@ int mdiobus_write(struct mii_bus *bus, i
+@@ -608,11 +651,9 @@ int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val)
  	BUG_ON(in_interrupt());
  
  	mutex_lock(&bus->mdio_lock);
@@ -127,9 +110,11 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  	return err;
  }
  EXPORT_SYMBOL(mdiobus_write);
+diff --git a/include/linux/mdio.h b/include/linux/mdio.h
+index 780c4859..4e075580 100644
 --- a/include/linux/mdio.h
 +++ b/include/linux/mdio.h
-@@ -260,6 +260,9 @@ static inline u16 ethtool_adv_to_mmd_eee
+@@ -260,6 +260,9 @@ static inline u16 ethtool_adv_to_mmd_eee_adv_t(u32 adv)
  	return reg;
  }
  

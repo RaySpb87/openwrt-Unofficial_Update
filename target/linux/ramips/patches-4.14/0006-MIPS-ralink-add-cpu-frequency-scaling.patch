@@ -1,16 +1,5 @@
-From bd30f19a006fb52bac80c6463c49dd2f4159f4ac Mon Sep 17 00:00:00 2001
-From: John Crispin <blogic@openwrt.org>
-Date: Sun, 28 Jul 2013 16:26:41 +0200
-Subject: [PATCH 06/53] MIPS: ralink: add cpu frequency scaling
-
-This feature will break udelay() and cause the delay loop to have longer delays
-when the frequency is scaled causing a performance hit.
-
-Signed-off-by: John Crispin <blogic@openwrt.org>
----
- arch/mips/ralink/cevt-rt3352.c |   38 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 38 insertions(+)
-
+diff --git a/arch/mips/ralink/cevt-rt3352.c b/arch/mips/ralink/cevt-rt3352.c
+index 92f284d2..f8791b8d 100644
 --- a/arch/mips/ralink/cevt-rt3352.c
 +++ b/arch/mips/ralink/cevt-rt3352.c
 @@ -29,6 +29,10 @@
@@ -83,7 +72,7 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  }
  
  static void systick_event_handler(struct clock_event_device *dev)
-@@ -60,20 +96,25 @@ static void systick_event_handler(struct
+@@ -60,20 +96,25 @@ static void systick_event_handler(struct clock_event_device *dev)
  
  static irqreturn_t systick_interrupt(int irq, void *dev_id)
  {
@@ -117,7 +106,7 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  		.features		= CLOCK_EVT_FEAT_ONESHOT,
  		.set_next_event		= systick_next_event,
  		.set_state_shutdown	= systick_shutdown,
-@@ -95,9 +136,15 @@ static int systick_shutdown(struct clock
+@@ -95,9 +136,15 @@ static int systick_shutdown(struct clock_event_device *evt)
  	sdev = container_of(evt, struct systick_device, dev);
  
  	if (sdev->irq_requested)
@@ -135,7 +124,7 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  
  	return 0;
  }
-@@ -117,34 +164,48 @@ static int systick_set_oneshot(struct cl
+@@ -117,34 +164,48 @@ static int systick_set_oneshot(struct clock_event_device *evt)
  	return 0;
  }
  

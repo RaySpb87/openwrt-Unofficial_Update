@@ -1,13 +1,5 @@
-From: Gabor Juhos <juhosg@openwrt.org>
-Subject: [PATCH] kernel/3.10: move squashfs check from rootfs split code into a separate file
-
-lede-commit: d89bea92b31b4e157a0fa438e75370f089f73427
-Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
----
- drivers/mtd/Kconfig  | 2 ++
- drivers/mtd/Makefile | 2 ++
- 2 files changed, 4 insertions(+)
-
+diff --git a/drivers/mtd/Kconfig b/drivers/mtd/Kconfig
+index f5ac04e2..4185e047 100644
 --- a/drivers/mtd/Kconfig
 +++ b/drivers/mtd/Kconfig
 @@ -27,6 +27,8 @@ config MTD_SPLIT_FIRMWARE_NAME
@@ -19,6 +11,8 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  endmenu
  
  config MTD_TESTS
+diff --git a/drivers/mtd/Makefile b/drivers/mtd/Makefile
+index d6f8f625..24016efc 100644
 --- a/drivers/mtd/Makefile
 +++ b/drivers/mtd/Makefile
 @@ -7,6 +7,8 @@

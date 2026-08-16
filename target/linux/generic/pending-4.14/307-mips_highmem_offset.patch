@@ -1,11 +1,5 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: kernel: adjust mips highmem offset to avoid the need for -mlong-calls on systems with >256M RAM
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- arch/mips/include/asm/mach-generic/spaces.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
+diff --git a/arch/mips/include/asm/mach-generic/spaces.h b/arch/mips/include/asm/mach-generic/spaces.h
+index 952b0fdf..fbb4e4cd 100644
 --- a/arch/mips/include/asm/mach-generic/spaces.h
 +++ b/arch/mips/include/asm/mach-generic/spaces.h
 @@ -46,7 +46,7 @@

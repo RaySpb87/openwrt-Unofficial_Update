@@ -1,15 +1,5 @@
-From: Sven Eckelmann <sven.eckelmann@openmesh.com>
-Date: Thu, 21 Dec 2017 10:17:40 +0100
-Subject: [PATCH] batman-adv: Remove kernel fixed width types in packet.h
-
-The uapi headers use the __u8/__u16/... version of the fixed width types
-instead of u8/u16/... The use of the latter must be avoided before
-packet.h is copied to include/uapi/linux/.
-
-Signed-off-by: Sven Eckelmann <sven.eckelmann@openmesh.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
-
+diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
+index abeffa7b..22aed2a7 100644
 --- a/net/batman-adv/packet.h
 +++ b/net/batman-adv/packet.h
 @@ -22,7 +22,7 @@

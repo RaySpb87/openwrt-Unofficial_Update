@@ -1,18 +1,8 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Thu, 1 Feb 2018 18:49:01 +0100
-Subject: [PATCH] netfilter: nft_flow_offload: no need to flush entries on
- module removal
-
-nft_flow_offload module removal does not require to flush existing
-flowtables, it is valid to remove this module while keeping flowtables
-around.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-
+diff --git a/net/netfilter/nft_flow_offload.c b/net/netfilter/nft_flow_offload.c
+index 1739ff8c..e5c45c7a 100644
 --- a/net/netfilter/nft_flow_offload.c
 +++ b/net/netfilter/nft_flow_offload.c
-@@ -247,14 +247,8 @@ register_expr:
+@@ -247,14 +247,8 @@ static int __init nft_flow_offload_module_init(void)
  
  static void __exit nft_flow_offload_module_exit(void)
  {

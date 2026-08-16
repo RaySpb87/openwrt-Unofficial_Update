@@ -1,14 +1,8 @@
-From: Daniel Golle <daniel@makrotopia.org>
-Subject: ubi: auto-create ubiblock device for rootfs
-
-Signed-off-by: Daniel Golle <daniel@makrotopia.org>
----
- drivers/mtd/ubi/block.c | 42 ++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 42 insertions(+)
-
+diff --git a/drivers/mtd/ubi/block.c b/drivers/mtd/ubi/block.c
+index d0b63bbf..ddfa6ab1 100644
 --- a/drivers/mtd/ubi/block.c
 +++ b/drivers/mtd/ubi/block.c
-@@ -633,6 +633,44 @@ static void __init ubiblock_create_from_
+@@ -633,6 +633,44 @@ static void __init ubiblock_create_from_param(void)
  	}
  }
  

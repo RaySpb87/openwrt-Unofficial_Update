@@ -1,12 +1,5 @@
-From: Gabor Juhos <juhosg@openwrt.org>
-Subject: mtd: add support for different partition parser types
-
-Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
----
- drivers/mtd/mtdpart.c          |   56 ++++++++++++++++++++++++++++++++++++++++
- include/linux/mtd/partitions.h |   11 ++++++++
- 2 files changed, 67 insertions(+)
-
+diff --git a/drivers/mtd/mtdpart.c b/drivers/mtd/mtdpart.c
+index 0536085d..cb6ef06e 100644
 --- a/drivers/mtd/mtdpart.c
 +++ b/drivers/mtd/mtdpart.c
 @@ -56,6 +56,10 @@ struct mtd_part {
@@ -20,7 +13,7 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  
  /*
   * Given a pointer to the MTD object in the mtd_part structure, we can retrieve
-@@ -762,6 +766,36 @@ int mtd_del_partition(struct mtd_info *m
+@@ -762,6 +766,36 @@ int mtd_del_partition(struct mtd_info *mtd, int partno)
  }
  EXPORT_SYMBOL_GPL(mtd_del_partition);
  
@@ -57,7 +50,7 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  #ifdef CONFIG_MTD_SPLIT_FIRMWARE_NAME
  #define SPLIT_FIRMWARE_NAME	CONFIG_MTD_SPLIT_FIRMWARE_NAME
  #else
-@@ -1147,6 +1181,61 @@ void mtd_part_parser_cleanup(struct mtd_
+@@ -1147,6 +1181,61 @@ void mtd_part_parser_cleanup(struct mtd_partitions *parts)
  	}
  }
  
@@ -119,6 +112,8 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  int mtd_is_partition(const struct mtd_info *mtd)
  {
  	struct mtd_part *part;
+diff --git a/include/linux/mtd/partitions.h b/include/linux/mtd/partitions.h
+index 11cb0c50..3c537f44 100644
 --- a/include/linux/mtd/partitions.h
 +++ b/include/linux/mtd/partitions.h
 @@ -73,6 +73,10 @@ struct mtd_part_parser_data {

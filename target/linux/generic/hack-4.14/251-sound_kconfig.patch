@@ -1,19 +1,5 @@
-From da3c50704f14132f4adf80d48e9a4cd5d46e54c9 Mon Sep 17 00:00:00 2001
-From: John Crispin <john@phrozen.org>
-Date: Fri, 7 Jul 2017 17:09:21 +0200
-Subject: kconfig: owrt specifc dependencies
-
-Signed-off-by: John Crispin <john@phrozen.org>
----
- crypto/Kconfig        | 10 +++++-----
- drivers/bcma/Kconfig  |  1 +
- drivers/ssb/Kconfig   |  3 ++-
- lib/Kconfig           |  8 ++++----
- net/netfilter/Kconfig |  2 +-
- net/wireless/Kconfig  | 17 ++++++++++-------
- sound/core/Kconfig    |  4 ++--
- 7 files changed, 25 insertions(+), 20 deletions(-)
-
+diff --git a/crypto/Kconfig b/crypto/Kconfig
+index 84f99f8e..8e6b27bb 100644
 --- a/crypto/Kconfig
 +++ b/crypto/Kconfig
 @@ -33,7 +33,7 @@ config CRYPTO_FIPS
@@ -61,6 +47,8 @@ Signed-off-by: John Crispin <john@phrozen.org>
  	select CRYPTO_RNG2
  	select CRYPTO_ALGAPI
  
+diff --git a/drivers/bcma/Kconfig b/drivers/bcma/Kconfig
+index a2df1ad0..e6d38527 100644
 --- a/drivers/bcma/Kconfig
 +++ b/drivers/bcma/Kconfig
 @@ -15,6 +15,7 @@ menuconfig BCMA
@@ -71,6 +59,8 @@ Signed-off-by: John Crispin <john@phrozen.org>
  
  config BCMA_HOST_PCI_POSSIBLE
  	bool
+diff --git a/drivers/ssb/Kconfig b/drivers/ssb/Kconfig
+index d8e4219c..a20c168c 100644
 --- a/drivers/ssb/Kconfig
 +++ b/drivers/ssb/Kconfig
 @@ -29,6 +29,7 @@ config SSB_SPROM
@@ -90,6 +80,8 @@ Signed-off-by: John Crispin <john@phrozen.org>
  
  config SSB_PCMCIAHOST_POSSIBLE
  	bool
+diff --git a/lib/Kconfig b/lib/Kconfig
+index 4c7506d2..a91542cf 100644
 --- a/lib/Kconfig
 +++ b/lib/Kconfig
 @@ -357,16 +357,16 @@ config BCH_CONST_T
@@ -113,6 +105,8 @@ Signed-off-by: John Crispin <john@phrozen.org>
  
  config BTREE
  	bool
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 7b5f79c6..74fd76a7 100644
 --- a/net/netfilter/Kconfig
 +++ b/net/netfilter/Kconfig
 @@ -10,7 +10,7 @@ config NETFILTER_INGRESS
@@ -124,6 +118,8 @@ Signed-off-by: John Crispin <john@phrozen.org>
  
  config NETFILTER_FAMILY_BRIDGE
  	bool
+diff --git a/net/wireless/Kconfig b/net/wireless/Kconfig
+index 6c606120..bd299de9 100644
 --- a/net/wireless/Kconfig
 +++ b/net/wireless/Kconfig
 @@ -1,5 +1,5 @@
@@ -175,6 +171,8 @@ Signed-off-by: John Crispin <john@phrozen.org>
  
  config LIB80211_DEBUG
  	bool "lib80211 debugging messages"
+diff --git a/sound/core/Kconfig b/sound/core/Kconfig
+index 6e937a81..884fe19a 100644
 --- a/sound/core/Kconfig
 +++ b/sound/core/Kconfig
 @@ -16,7 +16,7 @@ config SND_DMAENGINE_PCM

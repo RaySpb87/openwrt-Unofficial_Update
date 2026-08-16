@@ -1,15 +1,8 @@
-From: Felix Fietkau <nbd@nbd.name>
-Date: Fri, 16 Feb 2018 10:54:24 +0100
-Subject: [PATCH] ipv6: make ip6_dst_mtu_forward inline
-
-Removes a direct dependency on ipv6.ko
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
-
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 34139bc9..5d6fbb2c 100644
 --- a/include/net/ip6_route.h
 +++ b/include/net/ip6_route.h
-@@ -253,4 +253,26 @@ static inline bool rt6_duplicate_nexthop
+@@ -253,4 +253,26 @@ static inline bool rt6_duplicate_nexthop(struct rt6_info *a, struct rt6_info *b)
  	       ipv6_addr_equal(&a->rt6i_gateway, &b->rt6i_gateway) &&
  	       !lwtunnel_cmp_encap(a->dst.lwtstate, b->dst.lwtstate);
  }
@@ -36,9 +29,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
 +}
 +
  #endif
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 84c1c907..f127b9a1 100644
 --- a/include/net/ipv6.h
 +++ b/include/net/ipv6.h
-@@ -860,8 +860,6 @@ static inline struct sk_buff *ip6_finish
+@@ -856,8 +856,6 @@ static inline struct sk_buff *ip6_finish_skb(struct sock *sk)
  			      &inet6_sk(sk)->cork);
  }
  
@@ -47,9 +42,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  int ip6_dst_lookup(struct net *net, struct sock *sk, struct dst_entry **dst,
  		   struct flowi6 *fl6);
  struct dst_entry *ip6_dst_lookup_flow(struct net *net, const struct sock *sk, struct flowi6 *fl6,
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index c723a928..d91d2d07 100644
 --- a/net/ipv6/ip6_output.c
 +++ b/net/ipv6/ip6_output.c
-@@ -419,28 +419,6 @@ static inline int ip6_forward_finish(str
+@@ -425,28 +425,6 @@ static inline int ip6_forward_finish(struct net *net, struct sock *sk,
  	return dst_output(net, sk, skb);
  }
  

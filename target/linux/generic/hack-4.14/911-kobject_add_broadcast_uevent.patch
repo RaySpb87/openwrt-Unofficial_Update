@@ -1,14 +1,5 @@
-From 0d37e6edc09c99e683dd91ca0e83bbc0df8477b3 Mon Sep 17 00:00:00 2001
-From: Felix Fietkau <nbd@nbd.name>
-Date: Sun, 16 Jul 2017 16:56:10 +0200
-Subject: lib: add uevent_next_seqnum()
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- include/linux/kobject.h |  5 +++++
- lib/kobject_uevent.c    | 37 +++++++++++++++++++++++++++++++++++++
- 2 files changed, 42 insertions(+)
-
+diff --git a/include/linux/kobject.h b/include/linux/kobject.h
+index e232df1d..cde9be50 100644
 --- a/include/linux/kobject.h
 +++ b/include/linux/kobject.h
 @@ -32,6 +32,8 @@
@@ -20,7 +11,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  #ifdef CONFIG_UEVENT_HELPER
  /* path to the userspace helper executed on an event */
  extern char uevent_helper[];
-@@ -241,4 +243,7 @@ int kobject_synth_uevent(struct kobject
+@@ -241,4 +243,7 @@ int kobject_synth_uevent(struct kobject *kobj, const char *buf, size_t count);
  __printf(2, 3)
  int add_uevent_var(struct kobj_uevent_env *env, const char *format, ...);
  
@@ -28,12 +19,15 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
 +		     gfp_t allocation);
 +
  #endif /* _KOBJECT_H_ */
+diff --git a/lib/kobject_uevent.c b/lib/kobject_uevent.c
+index a42a358f..feb7616b 100644
 --- a/lib/kobject_uevent.c
 +++ b/lib/kobject_uevent.c
-@@ -603,6 +603,43 @@ int add_uevent_var(struct kobj_uevent_en
+@@ -602,6 +602,43 @@ int add_uevent_var(struct kobj_uevent_env *env, const char *format, ...)
+ }
  EXPORT_SYMBOL_GPL(add_uevent_var);
  
- #if defined(CONFIG_NET)
++#if defined(CONFIG_NET)
 +int broadcast_uevent(struct sk_buff *skb, __u32 pid, __u32 group,
 +		     gfp_t allocation)
 +{
@@ -70,7 +64,6 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
 +#endif
 +EXPORT_SYMBOL_GPL(broadcast_uevent);
 +
-+#if defined(CONFIG_NET)
+ #if defined(CONFIG_NET)
  static int uevent_net_init(struct net *net)
  {
- 	struct uevent_sock *ue_sk;

@@ -1,35 +1,8 @@
-From 9e3f1d0805b2d919904dd9a4ff0d956314cc3cba Mon Sep 17 00:00:00 2001
-From: Felix Fietkau <nbd@nbd.name>
-Date: Sat, 8 Jul 2017 08:20:09 +0200
-Subject: debloat: procfs
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- fs/locks.c               |  2 ++
- fs/proc/Kconfig          |  5 +++++
- fs/proc/consoles.c       |  3 +++
- fs/proc/proc_tty.c       | 11 ++++++++++-
- include/net/snmp.h       | 18 +++++++++++++++++-
- ipc/msg.c                |  3 +++
- ipc/sem.c                |  2 ++
- ipc/shm.c                |  2 ++
- ipc/util.c               |  3 +++
- kernel/exec_domain.c     |  2 ++
- kernel/irq/proc.c        |  9 +++++++++
- kernel/time/timer_list.c |  2 ++
- mm/vmalloc.c             |  2 ++
- mm/vmstat.c              |  8 +++++---
- net/8021q/vlanproc.c     |  6 ++++++
- net/core/net-procfs.c    | 18 ++++++++++++------
- net/core/sock.c          |  2 ++
- net/ipv4/fib_trie.c      | 18 ++++++++++++------
- net/ipv4/proc.c          |  3 +++
- net/ipv4/route.c         |  3 +++
- 20 files changed, 105 insertions(+), 17 deletions(-)
-
+diff --git a/fs/locks.c b/fs/locks.c
+index 1a40e277..155f9a41 100644
 --- a/fs/locks.c
 +++ b/fs/locks.c
-@@ -2812,6 +2812,8 @@ static const struct file_operations proc
+@@ -2812,6 +2812,8 @@ static const struct file_operations proc_locks_operations = {
  
  static int __init proc_locks_init(void)
  {
@@ -38,6 +11,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	proc_create("locks", 0, NULL, &proc_locks_operations);
  	return 0;
  }
+diff --git a/fs/proc/Kconfig b/fs/proc/Kconfig
+index 1ade1206..451f8698 100644
 --- a/fs/proc/Kconfig
 +++ b/fs/proc/Kconfig
 @@ -81,3 +81,8 @@ config PROC_CHILDREN
@@ -49,9 +24,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
 +	default n
 +	depends on EXPERT
 +	bool "Strip non-essential /proc functionality to reduce code size"
+diff --git a/fs/proc/consoles.c b/fs/proc/consoles.c
+index 290ba85c..c49b647b 100644
 --- a/fs/proc/consoles.c
 +++ b/fs/proc/consoles.c
-@@ -106,6 +106,9 @@ static const struct file_operations proc
+@@ -106,6 +106,9 @@ static const struct file_operations proc_consoles_operations = {
  
  static int __init proc_consoles_init(void)
  {
@@ -61,9 +38,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	proc_create("consoles", 0, NULL, &proc_consoles_operations);
  	return 0;
  }
+diff --git a/fs/proc/proc_tty.c b/fs/proc/proc_tty.c
+index d0cf1c50..80602476 100644
 --- a/fs/proc/proc_tty.c
 +++ b/fs/proc/proc_tty.c
-@@ -145,7 +145,10 @@ static const struct file_operations proc
+@@ -145,7 +145,10 @@ static const struct file_operations proc_tty_drivers_operations = {
  void proc_tty_register_driver(struct tty_driver *driver)
  {
  	struct proc_dir_entry *ent;
@@ -75,7 +54,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	if (!driver->driver_name || driver->proc_entry ||
  	    !driver->ops->proc_fops)
  		return;
-@@ -162,6 +165,9 @@ void proc_tty_unregister_driver(struct t
+@@ -162,6 +165,9 @@ void proc_tty_unregister_driver(struct tty_driver *driver)
  {
  	struct proc_dir_entry *ent;
  
@@ -85,7 +64,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	ent = driver->proc_entry;
  	if (!ent)
  		return;
-@@ -176,6 +182,9 @@ void proc_tty_unregister_driver(struct t
+@@ -176,6 +182,9 @@ void proc_tty_unregister_driver(struct tty_driver *driver)
   */
  void __init proc_tty_init(void)
  {
@@ -95,6 +74,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	if (!proc_mkdir("tty", NULL))
  		return;
  	proc_mkdir("tty/ldisc", NULL);	/* Preserved: it's userspace visible */
+diff --git a/include/net/snmp.h b/include/net/snmp.h
+index c9228ad7..7407fc96 100644
 --- a/include/net/snmp.h
 +++ b/include/net/snmp.h
 @@ -123,6 +123,21 @@ struct linux_xfrm_mib {
@@ -130,6 +111,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  #define __SNMP_ADD_STATS64(mib, field, addend) 				\
  	do {								\
+diff --git a/ipc/msg.c b/ipc/msg.c
+index bce7ac1c..c91625b2 100644
 --- a/ipc/msg.c
 +++ b/ipc/msg.c
 @@ -1208,6 +1208,9 @@ int __init msg_init(void)
@@ -142,6 +125,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	ipc_init_proc_interface("sysvipc/msg",
  				"       key      msqid perms      cbytes       qnum lspid lrpid   uid   gid  cuid  cgid      stime      rtime      ctime\n",
  				IPC_MSG_IDS, sysvipc_msg_proc_show);
+diff --git a/ipc/sem.c b/ipc/sem.c
+index 89fef455..003059e2 100644
 --- a/ipc/sem.c
 +++ b/ipc/sem.c
 @@ -207,6 +207,8 @@ int __init sem_init(void)
@@ -153,6 +138,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	ipc_init_proc_interface("sysvipc/sem",
  				"       key      semid perms      nsems   uid   gid  cuid  cgid      otime      ctime\n",
  				IPC_SEM_IDS, sysvipc_sem_proc_show);
+diff --git a/ipc/shm.c b/ipc/shm.c
+index d3cebe4e..c12203fa 100644
 --- a/ipc/shm.c
 +++ b/ipc/shm.c
 @@ -123,6 +123,8 @@ pure_initcall(ipc_ns_init);
@@ -164,9 +151,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	ipc_init_proc_interface("sysvipc/shm",
  #if BITS_PER_LONG <= 32
  				"       key      shmid perms       size  cpid  lpid nattch   uid   gid  cuid  cgid      atime      dtime      ctime        rss       swap\n",
+diff --git a/ipc/util.c b/ipc/util.c
+index 198b4c1c..e1f39998 100644
 --- a/ipc/util.c
 +++ b/ipc/util.c
-@@ -141,6 +141,9 @@ void __init ipc_init_proc_interface(cons
+@@ -141,6 +141,9 @@ void __init ipc_init_proc_interface(const char *path, const char *header,
  	struct proc_dir_entry *pde;
  	struct ipc_proc_iface *iface;
  
@@ -176,9 +165,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	iface = kmalloc(sizeof(*iface), GFP_KERNEL);
  	if (!iface)
  		return;
+diff --git a/kernel/exec_domain.c b/kernel/exec_domain.c
+index 0975b026..b557ead4 100644
 --- a/kernel/exec_domain.c
 +++ b/kernel/exec_domain.c
-@@ -42,6 +42,8 @@ static const struct file_operations exec
+@@ -42,6 +42,8 @@ static const struct file_operations execdomains_proc_fops = {
  
  static int __init proc_execdomains_init(void)
  {
@@ -187,9 +178,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	proc_create("execdomains", 0, NULL, &execdomains_proc_fops);
  	return 0;
  }
+diff --git a/kernel/irq/proc.c b/kernel/irq/proc.c
+index b031db9d..966ff861 100644
 --- a/kernel/irq/proc.c
 +++ b/kernel/irq/proc.c
-@@ -418,6 +418,9 @@ void register_irq_proc(unsigned int irq,
+@@ -418,6 +418,9 @@ void register_irq_proc(unsigned int irq, struct irq_desc *desc)
  	void __maybe_unused *irqp = (void *)(unsigned long) irq;
  	char name [MAX_NAMELEN];
  
@@ -199,7 +192,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	if (!root_irq_dir || (desc->irq_data.chip == &no_irq_chip))
  		return;
  
-@@ -471,6 +474,9 @@ void unregister_irq_proc(unsigned int ir
+@@ -471,6 +474,9 @@ void unregister_irq_proc(unsigned int irq, struct irq_desc *desc)
  {
  	char name [MAX_NAMELEN];
  
@@ -219,9 +212,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	/* create /proc/irq */
  	root_irq_dir = proc_mkdir("irq", NULL);
  	if (!root_irq_dir)
+diff --git a/kernel/time/timer_list.c b/kernel/time/timer_list.c
+index 7e9f149d..0d8dc12d 100644
 --- a/kernel/time/timer_list.c
 +++ b/kernel/time/timer_list.c
-@@ -390,6 +390,8 @@ static int __init init_timer_list_procfs
+@@ -390,6 +390,8 @@ static int __init init_timer_list_procfs(void)
  {
  	struct proc_dir_entry *pe;
  
@@ -230,9 +225,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	pe = proc_create("timer_list", 0400, NULL, &timer_list_fops);
  	if (!pe)
  		return -ENOMEM;
+diff --git a/mm/vmalloc.c b/mm/vmalloc.c
+index e8c64ddd..b728317c 100644
 --- a/mm/vmalloc.c
 +++ b/mm/vmalloc.c
-@@ -2798,6 +2798,8 @@ static const struct file_operations proc
+@@ -2798,6 +2798,8 @@ static const struct file_operations proc_vmalloc_operations = {
  
  static int __init proc_vmalloc_init(void)
  {
@@ -241,6 +238,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	proc_create("vmallocinfo", S_IRUSR, NULL, &proc_vmalloc_operations);
  	return 0;
  }
+diff --git a/mm/vmstat.c b/mm/vmstat.c
+index c65a96d4..c2d43241 100644
 --- a/mm/vmstat.c
 +++ b/mm/vmstat.c
 @@ -1954,10 +1954,12 @@ void __init init_mm_internals(void)
@@ -259,6 +258,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  #endif
  }
  
+diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
+index 5f1446c9..1249621a 100644
 --- a/net/8021q/vlanproc.c
 +++ b/net/8021q/vlanproc.c
 @@ -127,6 +127,9 @@ void vlan_proc_cleanup(struct net *net)
@@ -271,7 +272,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	if (vn->proc_vlan_conf)
  		remove_proc_entry(name_conf, vn->proc_vlan_dir);
  
-@@ -146,6 +149,9 @@ int __net_init vlan_proc_init(struct net
+@@ -146,6 +149,9 @@ int __net_init vlan_proc_init(struct net *net)
  {
  	struct vlan_net *vn = net_generic(net, vlan_net_id);
  
@@ -281,9 +282,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	vn->proc_vlan_dir = proc_net_mkdir(net, name_root, net->proc_net);
  	if (!vn->proc_vlan_dir)
  		goto err;
+diff --git a/net/core/net-procfs.c b/net/core/net-procfs.c
+index 120015d2..a21727b9 100644
 --- a/net/core/net-procfs.c
 +++ b/net/core/net-procfs.c
-@@ -350,10 +350,12 @@ static int __net_init dev_proc_net_init(
+@@ -350,10 +350,12 @@ static int __net_init dev_proc_net_init(struct net *net)
  
  	if (!proc_create("dev", S_IRUGO, net->proc_net, &dev_seq_fops))
  		goto out;
@@ -298,7 +301,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  		goto out_softnet;
  
  	if (wext_proc_init(net))
-@@ -362,9 +364,11 @@ static int __net_init dev_proc_net_init(
+@@ -362,9 +364,11 @@ static int __net_init dev_proc_net_init(struct net *net)
  out:
  	return rc;
  out_ptype:
@@ -312,7 +315,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  out_dev:
  	remove_proc_entry("dev", net->proc_net);
  	goto out;
-@@ -374,8 +378,10 @@ static void __net_exit dev_proc_net_exit
+@@ -374,8 +378,10 @@ static void __net_exit dev_proc_net_exit(struct net *net)
  {
  	wext_proc_exit(net);
  
@@ -325,9 +328,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	remove_proc_entry("dev", net->proc_net);
  }
  
+diff --git a/net/core/sock.c b/net/core/sock.c
+index dbe6f3f5..231d7286 100644
 --- a/net/core/sock.c
 +++ b/net/core/sock.c
-@@ -3427,6 +3427,8 @@ static __net_initdata struct pernet_oper
+@@ -3439,6 +3439,8 @@ static __net_initdata struct pernet_operations proto_net_ops = {
  
  static int __init proto_init(void)
  {
@@ -336,9 +341,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	return register_pernet_subsys(&proto_net_ops);
  }
  
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 5eedc07f..faf1b488 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
-@@ -2743,10 +2743,12 @@ static const struct file_operations fib_
+@@ -2743,10 +2743,12 @@ static const struct file_operations fib_route_fops = {
  
  int __net_init fib_proc_init(struct net *net)
  {
@@ -353,7 +360,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  			 &fib_triestat_fops))
  		goto out2;
  
-@@ -2756,17 +2758,21 @@ int __net_init fib_proc_init(struct net
+@@ -2756,17 +2758,21 @@ int __net_init fib_proc_init(struct net *net)
  	return 0;
  
  out3:
@@ -379,9 +386,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	remove_proc_entry("route", net->proc_net);
  }
  
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 88aaf149..92a48046 100644
 --- a/net/ipv4/proc.c
 +++ b/net/ipv4/proc.c
-@@ -559,6 +559,9 @@ static __net_initdata struct pernet_oper
+@@ -559,6 +559,9 @@ static __net_initdata struct pernet_operations ip_proc_ops = {
  
  int __init ip_misc_proc_init(void)
  {
@@ -391,9 +400,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	return register_pernet_subsys(&ip_proc_ops);
  }
  
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 239b54c0..b55d6e19 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -428,6 +428,9 @@ static struct pernet_operations ip_rt_pr
+@@ -428,6 +428,9 @@ static struct pernet_operations ip_rt_proc_ops __net_initdata =  {
  
  static int __init ip_rt_proc_init(void)
  {

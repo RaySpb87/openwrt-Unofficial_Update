@@ -1,14 +1,5 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Wed, 20 Dec 2017 16:12:55 +0100
-Subject: [PATCH] netfilter: remove saveroute indirection in struct nf_afinfo
-
-This is only used by nf_queue.c and this function comes with no symbol
-dependencies with IPv6, it just refers to structure layouts. Therefore,
-we can replace it by a direct function call from where it belongs.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 70b238ef..5fc24432 100644
 --- a/include/linux/netfilter.h
 +++ b/include/linux/netfilter.h
 @@ -313,8 +313,6 @@ struct nf_afinfo {
@@ -20,6 +11,8 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	int		(*reroute)(struct net *net, struct sk_buff *skb,
  				   const struct nf_queue_entry *entry);
  	int		route_key_size;
+diff --git a/include/linux/netfilter_ipv4.h b/include/linux/netfilter_ipv4.h
+index 811425ec..8d4ef1e3 100644
 --- a/include/linux/netfilter_ipv4.h
 +++ b/include/linux/netfilter_ipv4.h
 @@ -6,6 +6,16 @@
@@ -39,6 +32,8 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  int ip_route_me_harder(struct net *net, struct sk_buff *skb, unsigned addr_type);
  
  #ifdef CONFIG_INET
+diff --git a/include/linux/netfilter_ipv6.h b/include/linux/netfilter_ipv6.h
+index 29e8f128..08d58dc0 100644
 --- a/include/linux/netfilter_ipv6.h
 +++ b/include/linux/netfilter_ipv6.h
 @@ -9,6 +9,15 @@
@@ -57,9 +52,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  /*
   * Hook functions for ipv6 to allow xt_* modules to be built-in even
   * if IPv6 is a module.
+diff --git a/net/bridge/netfilter/nf_tables_bridge.c b/net/bridge/netfilter/nf_tables_bridge.c
+index a98ef55b..08d6fd0e 100644
 --- a/net/bridge/netfilter/nf_tables_bridge.c
 +++ b/net/bridge/netfilter/nf_tables_bridge.c
-@@ -95,11 +95,6 @@ static const struct nf_chain_type filter
+@@ -95,11 +95,6 @@ static const struct nf_chain_type filter_bridge = {
  			  (1 << NF_BR_POST_ROUTING),
  };
  
@@ -71,7 +68,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  static int nf_br_reroute(struct net *net, struct sk_buff *skb,
  			 const struct nf_queue_entry *entry)
  {
-@@ -115,7 +110,6 @@ static int nf_br_route(struct net *net,
+@@ -115,7 +110,6 @@ static int nf_br_route(struct net *net, struct dst_entry **dst,
  static const struct nf_afinfo nf_br_afinfo = {
  	.family                 = AF_BRIDGE,
  	.route                  = nf_br_route,
@@ -79,9 +76,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	.reroute                = nf_br_reroute,
  	.route_key_size         = 0,
  };
+diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
+index 010c75fd..7878ae6c 100644
 --- a/net/ipv4/netfilter.c
 +++ b/net/ipv4/netfilter.c
-@@ -80,33 +80,6 @@ int ip_route_me_harder(struct net *net,
+@@ -80,33 +80,6 @@ int ip_route_me_harder(struct net *net, struct sk_buff *skb, unsigned int addr_t
  }
  EXPORT_SYMBOL(ip_route_me_harder);
  
@@ -115,7 +114,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  static int nf_ip_reroute(struct net *net, struct sk_buff *skb,
  			 const struct nf_queue_entry *entry)
  {
-@@ -190,7 +163,6 @@ static int nf_ip_route(struct net *net,
+@@ -190,7 +163,6 @@ static int nf_ip_route(struct net *net, struct dst_entry **dst,
  static const struct nf_afinfo nf_ip_afinfo = {
  	.family			= AF_INET,
  	.route			= nf_ip_route,
@@ -123,9 +122,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	.reroute		= nf_ip_reroute,
  	.route_key_size		= sizeof(struct ip_rt_info),
  };
+diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
+index f0622300..e0f91728 100644
 --- a/net/ipv6/netfilter.c
 +++ b/net/ipv6/netfilter.c
-@@ -72,31 +72,6 @@ int ip6_route_me_harder(struct net *net,
+@@ -72,31 +72,6 @@ int ip6_route_me_harder(struct net *net, struct sk_buff *skb)
  }
  EXPORT_SYMBOL(ip6_route_me_harder);
  
@@ -157,7 +158,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  static int nf_ip6_reroute(struct net *net, struct sk_buff *skb,
  			  const struct nf_queue_entry *entry)
  {
-@@ -204,7 +179,6 @@ static const struct nf_ipv6_ops ipv6ops
+@@ -204,7 +179,6 @@ static const struct nf_ipv6_ops ipv6ops = {
  static const struct nf_afinfo nf_ip6_afinfo = {
  	.family			= AF_INET6,
  	.route			= nf_ip6_route,
@@ -165,6 +166,8 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	.reroute		= nf_ip6_reroute,
  	.route_key_size		= sizeof(struct ip6_rt_info),
  };
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index 9c72f45d..e6232fc8 100644
 --- a/net/netfilter/nf_queue.c
 +++ b/net/netfilter/nf_queue.c
 @@ -10,6 +10,8 @@
@@ -176,7 +179,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  #include <linux/netfilter_bridge.h>
  #include <linux/seq_file.h>
  #include <linux/rcupdate.h>
-@@ -121,6 +123,35 @@ void nf_queue_nf_hook_drop(struct net *n
+@@ -119,6 +121,35 @@ void nf_queue_nf_hook_drop(struct net *net)
  }
  EXPORT_SYMBOL_GPL(nf_queue_nf_hook_drop);
  
@@ -212,7 +215,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  static int __nf_queue(struct sk_buff *skb, const struct nf_hook_state *state,
  		      const struct nf_hook_entries *entries,
  		      unsigned int index, unsigned int queuenum)
-@@ -165,7 +196,15 @@ static int __nf_queue(struct sk_buff *sk
+@@ -163,7 +194,15 @@ static int __nf_queue(struct sk_buff *skb, const struct nf_hook_state *state,
  		return -ENOTCONN;
  	}
  

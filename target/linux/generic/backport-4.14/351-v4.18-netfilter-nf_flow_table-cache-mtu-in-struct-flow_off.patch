@@ -1,13 +1,5 @@
-From: Felix Fietkau <nbd@nbd.name>
-Date: Fri, 16 Feb 2018 10:57:23 +0100
-Subject: [PATCH] netfilter: nf_flow_table: cache mtu in struct
- flow_offload_tuple
-
-Reduces the number of cache lines touched in the offload forwarding path
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
-
+diff --git a/include/net/netfilter/nf_flow_table.h b/include/net/netfilter/nf_flow_table.h
+index 09ba6759..76ee5c81 100644
 --- a/include/net/netfilter/nf_flow_table.h
 +++ b/include/net/netfilter/nf_flow_table.h
 @@ -55,6 +55,8 @@ struct flow_offload_tuple {
@@ -19,9 +11,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	struct dst_entry		*dst_cache;
  };
  
+diff --git a/net/ipv4/netfilter/nf_flow_table_ipv4.c b/net/ipv4/netfilter/nf_flow_table_ipv4.c
+index 25d2975d..e17ef57b 100644
 --- a/net/ipv4/netfilter/nf_flow_table_ipv4.c
 +++ b/net/ipv4/netfilter/nf_flow_table_ipv4.c
-@@ -177,7 +177,7 @@ static int nf_flow_tuple_ip(struct sk_bu
+@@ -177,7 +177,7 @@ static int nf_flow_tuple_ip(struct sk_buff *skb, const struct net_device *dev,
  }
  
  /* Based on ip_exceeds_mtu(). */
@@ -30,7 +24,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  {
  	if (skb->len <= mtu)
  		return false;
-@@ -191,17 +191,6 @@ static bool __nf_flow_exceeds_mtu(const
+@@ -191,17 +191,6 @@ static bool __nf_flow_exceeds_mtu(const struct sk_buff *skb, unsigned int mtu)
  	return true;
  }
  
@@ -48,7 +42,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  unsigned int
  nf_flow_offload_ip_hook(void *priv, struct sk_buff *skb,
  			const struct nf_hook_state *state)
-@@ -232,9 +221,9 @@ nf_flow_offload_ip_hook(void *priv, stru
+@@ -232,9 +221,9 @@ nf_flow_offload_ip_hook(void *priv, struct sk_buff *skb,
  
  	dir = tuplehash->tuple.dir;
  	flow = container_of(tuplehash, struct flow_offload, tuplehash[dir]);
@@ -60,9 +54,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  		return NF_ACCEPT;
  
  	if (skb_try_make_writable(skb, sizeof(*iph)))
+diff --git a/net/ipv6/netfilter/nf_flow_table_ipv6.c b/net/ipv6/netfilter/nf_flow_table_ipv6.c
+index d346705d..f530efd3 100644
 --- a/net/ipv6/netfilter/nf_flow_table_ipv6.c
 +++ b/net/ipv6/netfilter/nf_flow_table_ipv6.c
-@@ -173,7 +173,7 @@ static int nf_flow_tuple_ipv6(struct sk_
+@@ -173,7 +173,7 @@ static int nf_flow_tuple_ipv6(struct sk_buff *skb, const struct net_device *dev,
  }
  
  /* Based on ip_exceeds_mtu(). */
@@ -71,7 +67,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  {
  	if (skb->len <= mtu)
  		return false;
-@@ -184,17 +184,6 @@ static bool __nf_flow_exceeds_mtu(const
+@@ -184,17 +184,6 @@ static bool __nf_flow_exceeds_mtu(const struct sk_buff *skb, unsigned int mtu)
  	return true;
  }
  
@@ -89,7 +85,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  unsigned int
  nf_flow_offload_ipv6_hook(void *priv, struct sk_buff *skb,
  			  const struct nf_hook_state *state)
-@@ -225,9 +214,9 @@ nf_flow_offload_ipv6_hook(void *priv, st
+@@ -225,9 +214,9 @@ nf_flow_offload_ipv6_hook(void *priv, struct sk_buff *skb,
  
  	dir = tuplehash->tuple.dir;
  	flow = container_of(tuplehash, struct flow_offload, tuplehash[dir]);
@@ -101,6 +97,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  		return NF_ACCEPT;
  
  	if (skb_try_make_writable(skb, sizeof(*ip6h)))
+diff --git a/net/netfilter/nf_flow_table.c b/net/netfilter/nf_flow_table.c
+index c7fffe07..d4da9283 100644
 --- a/net/netfilter/nf_flow_table.c
 +++ b/net/netfilter/nf_flow_table.c
 @@ -4,6 +4,8 @@
@@ -112,7 +110,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  #include <net/netfilter/nf_tables.h>
  #include <net/netfilter/nf_flow_table.h>
  #include <net/netfilter/nf_conntrack.h>
-@@ -23,6 +25,7 @@ flow_offload_fill_dir(struct flow_offloa
+@@ -23,6 +25,7 @@ flow_offload_fill_dir(struct flow_offload *flow, struct nf_conn *ct,
  {
  	struct flow_offload_tuple *ft = &flow->tuplehash[dir].tuple;
  	struct nf_conntrack_tuple *ctt = &ct->tuplehash[dir].tuple;
@@ -120,7 +118,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  	ft->dir = dir;
  
-@@ -30,10 +33,12 @@ flow_offload_fill_dir(struct flow_offloa
+@@ -30,10 +33,12 @@ flow_offload_fill_dir(struct flow_offload *flow, struct nf_conn *ct,
  	case NFPROTO_IPV4:
  		ft->src_v4 = ctt->src.u3.in;
  		ft->dst_v4 = ctt->dst.u3.in;
@@ -133,7 +131,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  		break;
  	}
  
-@@ -44,8 +49,7 @@ flow_offload_fill_dir(struct flow_offloa
+@@ -44,8 +49,7 @@ flow_offload_fill_dir(struct flow_offload *flow, struct nf_conn *ct,
  
  	ft->iifidx = route->tuple[dir].ifindex;
  	ft->oifidx = route->tuple[!dir].ifindex;

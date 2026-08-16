@@ -1,22 +1,5 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Sun, 7 Jan 2018 01:04:15 +0100
-Subject: [PATCH] netfilter: flow table support for IPv4
-
-This patch adds the IPv4 flow table type, that implements the datapath
-flow table to forward IPv4 traffic. Rationale is:
-
-1) Look up for the packet in the flow table, from the ingress hook.
-2) If there's a hit, decrement ttl and pass it on to the neighbour layer
-   for transmission.
-3) If there's a miss, packet is passed up to the classic forwarding
-   path.
-
-This patch also supports layer 3 source and destination NAT.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- create mode 100644 net/ipv4/netfilter/nf_flow_table_ipv4.c
-
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+index cee51045..7d5d4449 100644
 --- a/net/ipv4/netfilter/Kconfig
 +++ b/net/ipv4/netfilter/Kconfig
 @@ -78,6 +78,14 @@ config NF_TABLES_ARP
@@ -34,9 +17,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  config NF_DUP_IPV4
  	tristate "Netfilter IPv4 packet duplication to alternate destination"
  	depends on !NF_CONNTRACK || NF_CONNTRACK
+diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
+index adcdae35..8bb1f0c7 100644
 --- a/net/ipv4/netfilter/Makefile
 +++ b/net/ipv4/netfilter/Makefile
-@@ -43,6 +43,9 @@ obj-$(CONFIG_NFT_REDIR_IPV4) += nft_redi
+@@ -43,6 +43,9 @@ obj-$(CONFIG_NFT_REDIR_IPV4) += nft_redir_ipv4.o
  obj-$(CONFIG_NFT_DUP_IPV4) += nft_dup_ipv4.o
  obj-$(CONFIG_NF_TABLES_ARP) += nf_tables_arp.o
  
@@ -46,6 +31,9 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  # generic IP tables 
  obj-$(CONFIG_IP_NF_IPTABLES) += ip_tables.o
  
+diff --git a/net/ipv4/netfilter/nf_flow_table_ipv4.c b/net/ipv4/netfilter/nf_flow_table_ipv4.c
+new file mode 100644
+index 00000000..ac56c0f0
 --- /dev/null
 +++ b/net/ipv4/netfilter/nf_flow_table_ipv4.c
 @@ -0,0 +1,283 @@

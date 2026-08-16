@@ -1,13 +1,5 @@
-From: Felix Fietkau <nbd@nbd.name>
-Date: Fri, 16 Feb 2018 09:41:18 +0100
-Subject: [PATCH] netfilter: nf_flow_table: use IP_CT_DIR_* values for
- FLOW_OFFLOAD_DIR_*
-
-Simplifies further code cleanups
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
-
+diff --git a/include/net/netfilter/nf_flow_table.h b/include/net/netfilter/nf_flow_table.h
+index 833752dd..09ba6759 100644
 --- a/include/net/netfilter/nf_flow_table.h
 +++ b/include/net/netfilter/nf_flow_table.h
 @@ -6,6 +6,7 @@

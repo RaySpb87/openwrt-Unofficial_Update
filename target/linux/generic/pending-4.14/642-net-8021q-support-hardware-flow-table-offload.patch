@@ -1,12 +1,5 @@
-From: Felix Fietkau <nbd@nbd.name>
-Date: Thu, 15 Mar 2018 20:49:58 +0100
-Subject: [PATCH] net: 8021q: support hardware flow table offload
-
-Add the VLAN ID and protocol information
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
-
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index c436c997..eb635578 100644
 --- a/net/8021q/vlan_dev.c
 +++ b/net/8021q/vlan_dev.c
 @@ -32,6 +32,10 @@
@@ -20,7 +13,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  #include "vlan.h"
  #include "vlanproc.h"
-@@ -769,6 +773,27 @@ static int vlan_dev_get_iflink(const str
+@@ -769,6 +773,27 @@ static int vlan_dev_get_iflink(const struct net_device *dev)
  	return real_dev->ifindex;
  }
  
@@ -48,7 +41,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  static const struct ethtool_ops vlan_ethtool_ops = {
  	.get_link_ksettings	= vlan_ethtool_get_link_ksettings,
  	.get_drvinfo	        = vlan_ethtool_get_drvinfo,
-@@ -806,6 +831,9 @@ static const struct net_device_ops vlan_
+@@ -806,6 +831,9 @@ static const struct net_device_ops vlan_netdev_ops = {
  	.ndo_fix_features	= vlan_dev_fix_features,
  	.ndo_get_lock_subclass  = vlan_dev_get_lock_subclass,
  	.ndo_get_iflink		= vlan_dev_get_iflink,

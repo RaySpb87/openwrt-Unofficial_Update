@@ -1,16 +1,8 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Thu, 25 Jan 2018 12:58:55 +0100
-Subject: [PATCH] netfilter: nft_flow_offload: handle netdevice events from
- nf_flow_table
-
-Move the code that deals with device events to the core.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-
+diff --git a/net/netfilter/nf_flow_table.c b/net/netfilter/nf_flow_table.c
+index c17f1af4..32483aa8 100644
 --- a/net/netfilter/nf_flow_table.c
 +++ b/net/netfilter/nf_flow_table.c
-@@ -462,5 +462,35 @@ void nf_flow_table_free(struct nf_flowta
+@@ -462,5 +462,35 @@ void nf_flow_table_free(struct nf_flowtable *flow_table)
  }
  EXPORT_SYMBOL_GPL(nf_flow_table_free);
  
@@ -46,9 +38,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 +
  MODULE_LICENSE("GPL");
  MODULE_AUTHOR("Pablo Neira Ayuso <pablo@netfilter.org>");
+diff --git a/net/netfilter/nft_flow_offload.c b/net/netfilter/nft_flow_offload.c
+index b65829b2..5458a79f 100644
 --- a/net/netfilter/nft_flow_offload.c
 +++ b/net/netfilter/nft_flow_offload.c
-@@ -194,44 +194,14 @@ static struct nft_expr_type nft_flow_off
+@@ -194,44 +194,14 @@ static struct nft_expr_type nft_flow_offload_type __read_mostly = {
  	.owner		= THIS_MODULE,
  };
  

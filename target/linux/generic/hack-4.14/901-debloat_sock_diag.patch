@@ -1,19 +1,5 @@
-From 3b6115d6b57a263bdc8c9b1df273bd4a7955eead Mon Sep 17 00:00:00 2001
-From: Felix Fietkau <nbd@nbd.name>
-Date: Sat, 8 Jul 2017 08:16:31 +0200
-Subject: debloat: add some debloat patches, strip down procfs and make O_DIRECT support optional, saves ~15K after lzma on MIPS
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- net/Kconfig         | 3 +++
- net/core/Makefile   | 3 ++-
- net/core/sock.c     | 2 ++
- net/ipv4/Kconfig    | 1 +
- net/netlink/Kconfig | 1 +
- net/packet/Kconfig  | 1 +
- net/unix/Kconfig    | 1 +
- 7 files changed, 11 insertions(+), 1 deletion(-)
-
+diff --git a/net/Kconfig b/net/Kconfig
+index 6d59093c..1cbaf08f 100644
 --- a/net/Kconfig
 +++ b/net/Kconfig
 @@ -97,6 +97,9 @@ source "net/netlabel/Kconfig"
@@ -26,9 +12,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  config NETWORK_SECMARK
  	bool "Security Marking"
  	help
+diff --git a/net/core/Makefile b/net/core/Makefile
+index 1fd0a9c8..85300c00 100644
 --- a/net/core/Makefile
 +++ b/net/core/Makefile
-@@ -10,9 +10,10 @@ obj-$(CONFIG_SYSCTL) += sysctl_net_core.
+@@ -10,9 +10,10 @@ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
  
  obj-y		     += dev.o ethtool.o dev_addr_lists.o dst.o netevent.o \
  			neighbour.o rtnetlink.o utils.o link_watch.o filter.o \
@@ -40,9 +28,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  obj-y += net-sysfs.o
  obj-$(CONFIG_PROC_FS) += net-procfs.o
  obj-$(CONFIG_NET_PKTGEN) += pktgen.o
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 7e1849b0..dbe6f3f5 100644
 --- a/net/core/sock.c
 +++ b/net/core/sock.c
-@@ -528,6 +528,18 @@ discard_and_relse:
+@@ -528,6 +528,18 @@ int __sk_receive_skb(struct sock *sk, struct sk_buff *skb,
  }
  EXPORT_SYMBOL(__sk_receive_skb);
  
@@ -61,7 +51,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie)
  {
  	struct dst_entry *dst = __sk_dst_get(sk);
-@@ -1617,9 +1629,11 @@ void sk_destruct(struct sock *sk)
+@@ -1618,9 +1630,11 @@ void sk_destruct(struct sock *sk)
  
  static void __sk_free(struct sock *sk)
  {
@@ -73,9 +63,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  		sk_destruct(sk);
  }
  
+diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
+index 146b50e3..b9b32185 100644
 --- a/net/core/sock_diag.c
 +++ b/net/core/sock_diag.c
-@@ -19,18 +19,6 @@ static int (*inet_rcv_compat)(struct sk_
+@@ -19,18 +19,6 @@ static int (*inet_rcv_compat)(struct sk_buff *skb, struct nlmsghdr *nlh);
  static DEFINE_MUTEX(sock_diag_table_mutex);
  static struct workqueue_struct *broadcast_wq;
  
@@ -94,9 +86,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  int sock_diag_check_cookie(struct sock *sk, const __u32 *cookie)
  {
  	u64 res;
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 33f124a6..5fac402c 100644
 --- a/net/ipv4/Kconfig
 +++ b/net/ipv4/Kconfig
-@@ -421,6 +421,7 @@ config INET_XFRM_MODE_BEET
+@@ -431,6 +431,7 @@ config INET_XFRM_MODE_BEET
  
  config INET_DIAG
  	tristate "INET: socket monitoring interface"
@@ -104,6 +98,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	default y
  	---help---
  	  Support for INET (TCP, DCCP, etc) socket monitoring interface used by
+diff --git a/net/netlink/Kconfig b/net/netlink/Kconfig
+index 5d6e8c05..8a2696d6 100644
 --- a/net/netlink/Kconfig
 +++ b/net/netlink/Kconfig
 @@ -4,6 +4,7 @@
@@ -114,6 +110,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	default n
  	---help---
  	  Support for NETLINK socket monitoring interface used by the ss tool.
+diff --git a/net/packet/Kconfig b/net/packet/Kconfig
+index cc55b35f..9a83c86f 100644
 --- a/net/packet/Kconfig
 +++ b/net/packet/Kconfig
 @@ -18,6 +18,7 @@ config PACKET
@@ -124,6 +122,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	default n
  	---help---
  	  Support for PF_PACKET sockets monitoring interface used by the ss tool.
+diff --git a/net/unix/Kconfig b/net/unix/Kconfig
+index 3b9e4506..b4c94d19 100644
 --- a/net/unix/Kconfig
 +++ b/net/unix/Kconfig
 @@ -27,6 +27,7 @@ config UNIX_SCM

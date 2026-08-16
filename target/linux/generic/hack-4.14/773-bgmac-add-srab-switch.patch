@@ -1,20 +1,8 @@
-From 3cb240533ab787899dc7f17aa7d6c5b4810e2e58 Mon Sep 17 00:00:00 2001
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Date: Fri, 7 Jul 2017 17:26:01 +0200
-Subject: bcm53xx: bgmac: use srab switch driver
-
-use the srab switch driver on these SoCs.
-
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
----
- drivers/net/ethernet/broadcom/bgmac-bcma.c |  1 +
- drivers/net/ethernet/broadcom/bgmac.c      | 24 ++++++++++++++++++++++++
- drivers/net/ethernet/broadcom/bgmac.h      |  4 ++++
- 3 files changed, 29 insertions(+)
-
+diff --git a/drivers/net/ethernet/broadcom/bgmac-bcma.c b/drivers/net/ethernet/broadcom/bgmac-bcma.c
+index b880c0b9..281cf7fc 100644
 --- a/drivers/net/ethernet/broadcom/bgmac-bcma.c
 +++ b/drivers/net/ethernet/broadcom/bgmac-bcma.c
-@@ -268,6 +268,7 @@ static int bgmac_probe(struct bcma_devic
+@@ -268,6 +268,7 @@ static int bgmac_probe(struct bcma_device *core)
  		bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
  		bgmac->feature_flags |= BGMAC_FEAT_NO_RESET;
  		bgmac->feature_flags |= BGMAC_FEAT_FORCE_SPEED_2500;
@@ -22,6 +10,8 @@ Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
  		break;
  	default:
  		bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index ae22f9f5..b5aa0327 100644
 --- a/drivers/net/ethernet/broadcom/bgmac.c
 +++ b/drivers/net/ethernet/broadcom/bgmac.c
 @@ -12,6 +12,7 @@
@@ -32,7 +22,7 @@ Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
  #include <linux/bcm47xx_nvram.h>
  #include <linux/phy.h>
  #include <linux/phy_fixed.h>
-@@ -1410,6 +1411,17 @@ static const struct ethtool_ops bgmac_et
+@@ -1410,6 +1411,17 @@ static const struct ethtool_ops bgmac_ethtool_ops = {
  	.set_link_ksettings     = phy_ethtool_set_link_ksettings,
  };
  
@@ -50,7 +40,7 @@ Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
  /**************************************************
   * MII
   **************************************************/
-@@ -1539,6 +1551,14 @@ int bgmac_enet_probe(struct bgmac *bgmac
+@@ -1539,6 +1551,14 @@ int bgmac_enet_probe(struct bgmac *bgmac)
  	net_dev->hw_features = net_dev->features;
  	net_dev->vlan_features = net_dev->features;
  
@@ -76,6 +66,8 @@ Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
  	unregister_netdev(bgmac->net_dev);
  	phy_disconnect(bgmac->net_dev->phydev);
  	netif_napi_del(&bgmac->napi);
+diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
+index 40d02fec..ed40b2ce 100644
 --- a/drivers/net/ethernet/broadcom/bgmac.h
 +++ b/drivers/net/ethernet/broadcom/bgmac.h
 @@ -427,6 +427,7 @@

@@ -1,17 +1,8 @@
-From: Vasily Averin <vvs@virtuozzo.com>
-Date: Sun, 12 Nov 2017 14:32:37 +0300
-Subject: [PATCH] netfilter: exit_net cleanup check added
-
-Be sure that lists initialized in net_init hook was return to initial
-state.
-
-Signed-off-by: Vasily Averin <vvs@virtuozzo.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index 45f21489..cc16953a 100644
 --- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
 +++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -835,6 +835,7 @@ static void clusterip_net_exit(struct ne
+@@ -835,6 +835,7 @@ static void clusterip_net_exit(struct net *net)
  	cn->procdir = NULL;
  #endif
  	nf_unregister_net_hook(net, &cip_arp_ops);
@@ -19,9 +10,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  }
  
  static struct pernet_operations clusterip_net_ops = {
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index aa603303..f819be52 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
-@@ -6573,6 +6573,12 @@ static int __net_init nf_tables_init_net
+@@ -6772,6 +6772,12 @@ static int __net_init nf_tables_init_net(struct net *net)
  	return 0;
  }
  
@@ -34,7 +27,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  int __nft_release_basechain(struct nft_ctx *ctx)
  {
  	struct nft_rule *rule, *nr;
-@@ -6650,6 +6656,7 @@ static void __nft_release_afinfo(struct
+@@ -6849,6 +6855,7 @@ static void __nft_release_afinfo(struct net *net, struct nft_af_info *afi)
  
  static struct pernet_operations nf_tables_net_ops = {
  	.init	= nf_tables_init_net,
@@ -42,9 +35,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  };
  
  static int __init nf_tables_module_init(void)
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index 7d7a94e3..e3f194a4 100644
 --- a/net/netfilter/nfnetlink_log.c
 +++ b/net/netfilter/nfnetlink_log.c
-@@ -1094,10 +1094,15 @@ static int __net_init nfnl_log_net_init(
+@@ -1094,10 +1094,15 @@ static int __net_init nfnl_log_net_init(struct net *net)
  
  static void __net_exit nfnl_log_net_exit(struct net *net)
  {
@@ -60,9 +55,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  }
  
  static struct pernet_operations nfnl_log_net_ops = {
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index 28716896..12f05dac 100644
 --- a/net/netfilter/nfnetlink_queue.c
 +++ b/net/netfilter/nfnetlink_queue.c
-@@ -1517,10 +1517,15 @@ static int __net_init nfnl_queue_net_ini
+@@ -1522,10 +1522,15 @@ static int __net_init nfnl_queue_net_init(struct net *net)
  
  static void __net_exit nfnl_queue_net_exit(struct net *net)
  {
@@ -78,9 +75,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  }
  
  static void nfnl_queue_net_exit_batch(struct list_head *net_exit_list)
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index 19b9078f..58fbe368 100644
 --- a/net/netfilter/x_tables.c
 +++ b/net/netfilter/x_tables.c
-@@ -1784,8 +1784,17 @@ static int __net_init xt_net_init(struct
+@@ -1784,8 +1784,17 @@ static int __net_init xt_net_init(struct net *net)
  	return 0;
  }
  

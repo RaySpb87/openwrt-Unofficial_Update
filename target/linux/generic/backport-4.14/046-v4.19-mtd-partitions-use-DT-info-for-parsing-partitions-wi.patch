@@ -1,38 +1,8 @@
-From 76a832254ab05502c9394cc51ded6f0abe0e0bee Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
-Date: Fri, 13 Jul 2018 16:32:21 +0200
-Subject: [PATCH] mtd: partitions: use DT info for parsing partitions with
- "compatible" prop
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-So far only flash devices could be described in DT regarding partitions
-parsing. That could be done with "partitions" subnode and a proper
-"compatible" string.
-
-Some devices may use hierarchical (multi-level) layouts and may mix used
-layouts (fixed and dynamic). Describing that in DT is done by specifying
-"compatible" for DT-represented partition plus optionally more
-properties and/or subnodes.
-
-To support such layouts each DT partition has to be checked for
-additional description.
-
-Please note this implementation will work in parallel with support for
-partition type specified for non-DT setups. That already works since
-commit 1a0915be1926 ("mtd: partitions: add support for partition
-parsers").
-
-Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
-Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
----
- drivers/mtd/mtdpart.c | 33 +++++++++++++--------------------
- 1 file changed, 13 insertions(+), 20 deletions(-)
-
+diff --git a/drivers/mtd/mtdpart.c b/drivers/mtd/mtdpart.c
+index fe9ae0ff..c0e57ff7 100644
 --- a/drivers/mtd/mtdpart.c
 +++ b/drivers/mtd/mtdpart.c
-@@ -370,22 +370,6 @@ static inline void free_partition(struct
+@@ -370,22 +370,6 @@ static inline void free_partition(struct mtd_part *p)
  	kfree(p);
  }
  
@@ -55,7 +25,7 @@ Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
  static struct mtd_part *allocate_partition(struct mtd_info *parent,
  			const struct mtd_partition *part, int partno,
  			uint64_t cur_offset)
-@@ -803,8 +787,8 @@ int add_mtd_partitions(struct mtd_info *
+@@ -803,8 +787,8 @@ int add_mtd_partitions(struct mtd_info *master,
  		}
  
  		mtd_add_partition_attrs(slave);
@@ -66,7 +36,7 @@ Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
  
  		cur_offset = slave->offset + slave->mtd.size;
  	}
-@@ -885,6 +869,12 @@ static const char * const default_mtd_pa
+@@ -885,6 +869,12 @@ static const char * const default_mtd_part_types[] = {
  	NULL
  };
  
@@ -79,7 +49,7 @@ Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
  static int mtd_part_do_parse(struct mtd_part_parser *parser,
  			     struct mtd_info *master,
  			     struct mtd_partitions *pparts,
-@@ -955,7 +945,9 @@ static int mtd_part_of_parse(struct mtd_
+@@ -955,7 +945,9 @@ static int mtd_part_of_parse(struct mtd_info *master,
  	const char *fixed = "fixed-partitions";
  	int ret, err = 0;
  
@@ -90,7 +60,7 @@ Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
  	of_property_for_each_string(np, "compatible", prop, compat) {
  		parser = mtd_part_get_compatible_parser(compat);
  		if (!parser)
-@@ -1018,7 +1010,8 @@ int parse_mtd_partitions(struct mtd_info
+@@ -1018,7 +1010,8 @@ int parse_mtd_partitions(struct mtd_info *master, const char *const *types,
  	int ret, err = 0;
  
  	if (!types)

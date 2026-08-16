@@ -1,23 +1,5 @@
-From 7f29222b1731e8182ba94a331531dec18865a1e4 Mon Sep 17 00:00:00 2001
-From: John Crispin <blogic@openwrt.org>
-Date: Sun, 27 Jul 2014 09:31:47 +0100
-Subject: [PATCH 48/53] asoc: add mt7620 support
-
-Signed-off-by: John Crispin <blogic@openwrt.org>
----
- arch/mips/ralink/of.c            |    2 +
- sound/soc/Kconfig                |    1 +
- sound/soc/Makefile               |    1 +
- sound/soc/ralink/Kconfig         |   15 ++
- sound/soc/ralink/Makefile        |   11 +
- sound/soc/ralink/mt7620-i2s.c    |  436 ++++++++++++++++++++++++++++++++++++++
- sound/soc/ralink/mt7620-wm8960.c |  233 ++++++++++++++++++++
- 7 files changed, 699 insertions(+)
- create mode 100644 sound/soc/ralink/Kconfig
- create mode 100644 sound/soc/ralink/Makefile
- create mode 100644 sound/soc/ralink/mt7620-i2s.c
- create mode 100644 sound/soc/ralink/mt7620-wm8960.c
-
+diff --git a/sound/soc/Kconfig b/sound/soc/Kconfig
+index c0abad20..1d459c2d 100644
 --- a/sound/soc/Kconfig
 +++ b/sound/soc/Kconfig
 @@ -59,6 +59,7 @@ source "sound/soc/mxs/Kconfig"
@@ -28,6 +10,8 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  source "sound/soc/samsung/Kconfig"
  source "sound/soc/sh/Kconfig"
  source "sound/soc/sirf/Kconfig"
+diff --git a/sound/soc/Makefile b/sound/soc/Makefile
+index bf8c1e2c..a31f14e8 100644
 --- a/sound/soc/Makefile
 +++ b/sound/soc/Makefile
 @@ -40,6 +40,7 @@ obj-$(CONFIG_SND_SOC)	+= kirkwood/
@@ -38,6 +22,9 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  obj-$(CONFIG_SND_SOC)	+= samsung/
  obj-$(CONFIG_SND_SOC)	+= sh/
  obj-$(CONFIG_SND_SOC)	+= sirf/
+diff --git a/sound/soc/ralink/Kconfig b/sound/soc/ralink/Kconfig
+new file mode 100644
+index 00000000..86a6e430
 --- /dev/null
 +++ b/sound/soc/ralink/Kconfig
 @@ -0,0 +1,8 @@
@@ -49,6 +36,9 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
 +	help
 +	  Say Y if you want to use I2S protocol and I2S codec on Ralink/MediaTek
 +	  based boards.
+diff --git a/sound/soc/ralink/Makefile b/sound/soc/ralink/Makefile
+new file mode 100644
+index 00000000..993ee423
 --- /dev/null
 +++ b/sound/soc/ralink/Makefile
 @@ -0,0 +1,6 @@
@@ -58,6 +48,9 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
 +snd-soc-ralink-i2s-objs := ralink-i2s.o
 +
 +obj-$(CONFIG_SND_RALINK_SOC_I2S) += snd-soc-ralink-i2s.o
+diff --git a/sound/soc/ralink/ralink-i2s.c b/sound/soc/ralink/ralink-i2s.c
+new file mode 100644
+index 00000000..cf0ac583
 --- /dev/null
 +++ b/sound/soc/ralink/ralink-i2s.c
 @@ -0,0 +1,965 @@

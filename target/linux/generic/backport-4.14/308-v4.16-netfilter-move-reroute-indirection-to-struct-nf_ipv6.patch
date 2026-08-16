@@ -1,20 +1,5 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon, 27 Nov 2017 22:50:26 +0100
-Subject: [PATCH] netfilter: move reroute indirection to struct nf_ipv6_ops
-
-We cannot make a direct call to nf_ip6_reroute() because that would result
-in autoloading the 'ipv6' module because of symbol dependencies.
-Therefore, define reroute indirection in nf_ipv6_ops where this really
-belongs to.
-
-For IPv4, we can indeed make a direct function call, which is faster,
-given IPv4 is built-in in the networking code by default. Still,
-CONFIG_INET=n and CONFIG_NETFILTER=y is possible, so define empty inline
-stub for IPv4 in such case.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 02c35eab..8358e717 100644
 --- a/include/linux/netfilter.h
 +++ b/include/linux/netfilter.h
 @@ -311,8 +311,6 @@ struct nf_queue_entry;
@@ -26,7 +11,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	int		route_key_size;
  };
  
-@@ -331,6 +329,7 @@ __sum16 nf_checksum_partial(struct sk_bu
+@@ -331,6 +329,7 @@ __sum16 nf_checksum_partial(struct sk_buff *skb, unsigned int hook,
  			    u_int8_t protocol, unsigned short family);
  int nf_route(struct net *net, struct dst_entry **dst, struct flowi *fl,
  	     bool strict, unsigned short family);
@@ -34,6 +19,8 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  
  int nf_register_afinfo(const struct nf_afinfo *afinfo);
  void nf_unregister_afinfo(const struct nf_afinfo *afinfo);
+diff --git a/include/linux/netfilter_ipv4.h b/include/linux/netfilter_ipv4.h
+index 2a4e2c41..b31dabfd 100644
 --- a/include/linux/netfilter_ipv4.h
 +++ b/include/linux/netfilter_ipv4.h
 @@ -18,6 +18,8 @@ struct ip_rt_info {
@@ -45,7 +32,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  #ifdef CONFIG_INET
  __sum16 nf_ip_checksum(struct sk_buff *skb, unsigned int hook,
  		       unsigned int dataoff, u_int8_t protocol);
-@@ -26,6 +28,7 @@ __sum16 nf_ip_checksum_partial(struct sk
+@@ -26,6 +28,7 @@ __sum16 nf_ip_checksum_partial(struct sk_buff *skb, unsigned int hook,
  			       u_int8_t protocol);
  int nf_ip_route(struct net *net, struct dst_entry **dst, struct flowi *fl,
  		bool strict);
@@ -53,7 +40,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  #else
  static inline __sum16 nf_ip_checksum(struct sk_buff *skb, unsigned int hook,
  				     unsigned int dataoff, u_int8_t protocol)
-@@ -45,6 +48,11 @@ static inline int nf_ip_route(struct net
+@@ -45,6 +48,11 @@ static inline int nf_ip_route(struct net *net, struct dst_entry **dst,
  {
  	return -EOPNOTSUPP;
  }
@@ -65,6 +52,8 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  #endif /* CONFIG_INET */
  
  #endif /*__LINUX_IP_NETFILTER_H*/
+diff --git a/include/linux/netfilter_ipv6.h b/include/linux/netfilter_ipv6.h
+index e5700bb3..288c597e 100644
 --- a/include/linux/netfilter_ipv6.h
 +++ b/include/linux/netfilter_ipv6.h
 @@ -18,6 +18,8 @@ struct ip6_rt_info {
@@ -84,9 +73,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  };
  
  #ifdef CONFIG_NETFILTER
+diff --git a/net/bridge/netfilter/nf_tables_bridge.c b/net/bridge/netfilter/nf_tables_bridge.c
+index ad1aa6b5..bf9a0bd0 100644
 --- a/net/bridge/netfilter/nf_tables_bridge.c
 +++ b/net/bridge/netfilter/nf_tables_bridge.c
-@@ -95,15 +95,8 @@ static const struct nf_chain_type filter
+@@ -95,15 +95,8 @@ static const struct nf_chain_type filter_bridge = {
  			  (1 << NF_BR_POST_ROUTING),
  };
  
@@ -102,9 +93,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	.route_key_size         = 0,
  };
  
+diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
+index e9d47e4e..ec73be3b 100644
 --- a/net/ipv4/netfilter.c
 +++ b/net/ipv4/netfilter.c
-@@ -80,8 +80,7 @@ int ip_route_me_harder(struct net *net,
+@@ -80,8 +80,7 @@ int ip_route_me_harder(struct net *net, struct sk_buff *skb, unsigned int addr_t
  }
  EXPORT_SYMBOL(ip_route_me_harder);
  
@@ -114,7 +107,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  {
  	const struct ip_rt_info *rt_info = nf_queue_entry_reroute(entry);
  
-@@ -92,10 +91,12 @@ static int nf_ip_reroute(struct net *net
+@@ -92,10 +91,12 @@ static int nf_ip_reroute(struct net *net, struct sk_buff *skb,
  		      skb->mark == rt_info->mark &&
  		      iph->daddr == rt_info->daddr &&
  		      iph->saddr == rt_info->saddr))
@@ -136,9 +129,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	.route_key_size		= sizeof(struct ip_rt_info),
  };
  
+diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
+index d0563313..426eba44 100644
 --- a/net/ipv6/netfilter.c
 +++ b/net/ipv6/netfilter.c
-@@ -72,7 +72,7 @@ int ip6_route_me_harder(struct net *net,
+@@ -72,7 +72,7 @@ int ip6_route_me_harder(struct net *net, struct sk_buff *skb)
  }
  EXPORT_SYMBOL(ip6_route_me_harder);
  
@@ -147,7 +142,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  			  const struct nf_queue_entry *entry)
  {
  	struct ip6_rt_info *rt_info = nf_queue_entry_reroute(entry);
-@@ -82,7 +82,7 @@ static int nf_ip6_reroute(struct net *ne
+@@ -82,7 +82,7 @@ static int nf_ip6_reroute(struct net *net, struct sk_buff *skb,
  		if (!ipv6_addr_equal(&iph->daddr, &rt_info->daddr) ||
  		    !ipv6_addr_equal(&iph->saddr, &rt_info->saddr) ||
  		    skb->mark != rt_info->mark)
@@ -156,7 +151,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	}
  	return 0;
  }
-@@ -175,11 +175,11 @@ static const struct nf_ipv6_ops ipv6ops
+@@ -175,11 +175,11 @@ static const struct nf_ipv6_ops ipv6ops = {
  	.checksum		= nf_ip6_checksum,
  	.checksum_partial	= nf_ip6_checksum_partial,
  	.route			= nf_ip6_route,
@@ -169,9 +164,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	.route_key_size		= sizeof(struct ip6_rt_info),
  };
  
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index e6232fc8..82b8cd68 100644
 --- a/net/netfilter/nf_queue.c
 +++ b/net/netfilter/nf_queue.c
-@@ -287,7 +287,6 @@ void nf_reinject(struct nf_queue_entry *
+@@ -285,7 +285,6 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
  	const struct nf_hook_entry *hook_entry;
  	const struct nf_hook_entries *hooks;
  	struct sk_buff *skb = entry->skb;
@@ -179,7 +176,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	const struct net *net;
  	unsigned int i;
  	int err;
-@@ -314,8 +313,7 @@ void nf_reinject(struct nf_queue_entry *
+@@ -312,8 +311,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
  		verdict = nf_hook_entry_hookfn(hook_entry, skb, &entry->state);
  
  	if (verdict == NF_ACCEPT) {
@@ -189,6 +186,8 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  			verdict = NF_DROP;
  	}
  
+diff --git a/net/netfilter/utils.c b/net/netfilter/utils.c
+index 45c22418..0b660c56 100644
 --- a/net/netfilter/utils.c
 +++ b/net/netfilter/utils.c
 @@ -2,6 +2,7 @@
@@ -199,7 +198,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  
  __sum16 nf_checksum(struct sk_buff *skb, unsigned int hook,
  		    unsigned int dataoff, u_int8_t protocol,
-@@ -69,3 +70,21 @@ int nf_route(struct net *net, struct dst
+@@ -69,3 +70,21 @@ int nf_route(struct net *net, struct dst_entry **dst, struct flowi *fl,
  	return ret;
  }
  EXPORT_SYMBOL_GPL(nf_route);

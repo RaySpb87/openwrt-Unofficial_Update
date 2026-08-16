@@ -1,26 +1,8 @@
-From cf589ce71e84d3b8811c65740645af254c5248c0 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
-Date: Wed, 9 May 2018 10:17:29 +0200
-Subject: [PATCH] mtd: bcm47xxpart: add of_match_table with a new DT binding
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-This allows using bcm47xxpart parser to find partitions on flash
-described in DT using the "brcm,bcm947xx-cfe-partitions" compatible
-property. It means this parser doesn't have to be explicitly selected by
-a flash driver anymore. It can be used e.g. together with a generic
-m25p80 / spi-nor if device is just properly described.
-
-Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
-Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
----
- drivers/mtd/bcm47xxpart.c | 7 +++++++
- 1 file changed, 7 insertions(+)
-
+diff --git a/drivers/mtd/bcm47xxpart.c b/drivers/mtd/bcm47xxpart.c
+index 1f023984..0f93d223 100644
 --- a/drivers/mtd/bcm47xxpart.c
 +++ b/drivers/mtd/bcm47xxpart.c
-@@ -304,9 +304,16 @@ static int bcm47xxpart_parse(struct mtd_
+@@ -304,9 +304,16 @@ static int bcm47xxpart_parse(struct mtd_info *master,
  	return curr_part;
  };
  

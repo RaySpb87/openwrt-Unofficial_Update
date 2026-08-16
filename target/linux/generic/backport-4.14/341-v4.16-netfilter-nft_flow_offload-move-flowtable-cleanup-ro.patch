@@ -1,17 +1,8 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue, 23 Jan 2018 17:46:09 +0100
-Subject: [PATCH] netfilter: nft_flow_offload: move flowtable cleanup
- routines to nf_flow_table
-
-Move the flowtable cleanup routines to nf_flow_table and expose the
-nf_flow_table_cleanup() helper function.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-
+diff --git a/include/net/netfilter/nf_flow_table.h b/include/net/netfilter/nf_flow_table.h
+index b22b2208..ed49cd16 100644
 --- a/include/net/netfilter/nf_flow_table.h
 +++ b/include/net/netfilter/nf_flow_table.h
-@@ -95,6 +95,9 @@ struct flow_offload_tuple_rhash *flow_of
+@@ -95,6 +95,9 @@ struct flow_offload_tuple_rhash *flow_offload_lookup(struct nf_flowtable *flow_t
  int nf_flow_table_iterate(struct nf_flowtable *flow_table,
  			  void (*iter)(struct flow_offload *flow, void *data),
  			  void *data);
@@ -21,6 +12,8 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  void nf_flow_offload_work_gc(struct work_struct *work);
  extern const struct rhashtable_params nf_flow_offload_rhash_params;
  
+diff --git a/net/netfilter/nf_flow_table.c b/net/netfilter/nf_flow_table.c
+index 2f5099cb..04c08f6b 100644
 --- a/net/netfilter/nf_flow_table.c
 +++ b/net/netfilter/nf_flow_table.c
 @@ -4,6 +4,7 @@
@@ -31,7 +24,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  #include <net/netfilter/nf_flow_table.h>
  #include <net/netfilter/nf_conntrack.h>
  #include <net/netfilter/nf_conntrack_core.h>
-@@ -425,5 +426,28 @@ int nf_flow_dnat_port(const struct flow_
+@@ -425,5 +426,28 @@ int nf_flow_dnat_port(const struct flow_offload *flow,
  }
  EXPORT_SYMBOL_GPL(nf_flow_dnat_port);
  
@@ -60,9 +53,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 +
  MODULE_LICENSE("GPL");
  MODULE_AUTHOR("Pablo Neira Ayuso <pablo@netfilter.org>");
+diff --git a/net/netfilter/nft_flow_offload.c b/net/netfilter/nft_flow_offload.c
+index e5c45c7a..b65829b2 100644
 --- a/net/netfilter/nft_flow_offload.c
 +++ b/net/netfilter/nft_flow_offload.c
-@@ -194,23 +194,6 @@ static struct nft_expr_type nft_flow_off
+@@ -194,23 +194,6 @@ static struct nft_expr_type nft_flow_offload_type __read_mostly = {
  	.owner		= THIS_MODULE,
  };
  
@@ -86,7 +81,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  static int flow_offload_netdev_event(struct notifier_block *this,
  				     unsigned long event, void *ptr)
  {
-@@ -219,7 +202,7 @@ static int flow_offload_netdev_event(str
+@@ -219,7 +202,7 @@ static int flow_offload_netdev_event(struct notifier_block *this,
  	if (event != NETDEV_DOWN)
  		return NOTIFY_DONE;
  

@@ -1,20 +1,8 @@
-From 61ac7d9b4228de8c332900902c2b93189b042eab Mon Sep 17 00:00:00 2001
-From: John Crispin <blogic@openwrt.org>
-Date: Sun, 27 Jul 2014 11:00:32 +0100
-Subject: [PATCH 28/53] GPIO: ralink: add mt7621 gpio controller
-
-Signed-off-by: John Crispin <blogic@openwrt.org>
----
- arch/mips/Kconfig          |    3 +
- drivers/gpio/Kconfig       |    6 +
- drivers/gpio/Makefile      |    1 +
- drivers/gpio/gpio-mt7621.c |  354 ++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 364 insertions(+)
- create mode 100644 drivers/gpio/gpio-mt7621.c
-
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+index 11481944..fa61846a 100644
 --- a/arch/mips/Kconfig
 +++ b/arch/mips/Kconfig
-@@ -634,6 +634,9 @@ config RALINK
+@@ -635,6 +635,9 @@ config RALINK
  	select RESET_CONTROLLER
  	select PINCTRL
  	select PINCTRL_RT2880
@@ -24,6 +12,8 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  
  config SGI_IP22
  	bool "SGI IP22 (Indy/Indigo2)"
+diff --git a/drivers/gpio/Kconfig b/drivers/gpio/Kconfig
+index aad9ed5c..47f3b6b1 100644
 --- a/drivers/gpio/Kconfig
 +++ b/drivers/gpio/Kconfig
 @@ -298,6 +298,12 @@ config GPIO_MENZ127
@@ -39,6 +29,8 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  config GPIO_MM_LANTIQ
  	bool "Lantiq Memory mapped GPIOs"
  	depends on LANTIQ && SOC_XWAY
+diff --git a/drivers/gpio/Makefile b/drivers/gpio/Makefile
+index fd23c4f9..33469e08 100644
 --- a/drivers/gpio/Makefile
 +++ b/drivers/gpio/Makefile
 @@ -152,3 +152,4 @@ obj-$(CONFIG_GPIO_ZEVIO)	+= gpio-zevio.o
@@ -46,6 +38,9 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  obj-$(CONFIG_GPIO_ZX)		+= gpio-zx.o
  obj-$(CONFIG_GPIO_LOONGSON1)	+= gpio-loongson1.o
 +obj-$(CONFIG_GPIO_MT7621)	+= gpio-mt7621.o
+diff --git a/drivers/gpio/gpio-mt7621.c b/drivers/gpio/gpio-mt7621.c
+new file mode 100644
+index 00000000..9ee4a0ea
 --- /dev/null
 +++ b/drivers/gpio/gpio-mt7621.c
 @@ -0,0 +1,354 @@

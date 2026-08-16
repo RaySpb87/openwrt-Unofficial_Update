@@ -1,16 +1,8 @@
-From: Ben Menchaca <ben.menchaca@qca.qualcomm.com>
-Date: Fri, 7 Jun 2013 18:35:22 -0500
-Subject: MIPS: r4k_cache: use more efficient cache blast
-
-Optimize the compiler output for larger cache blast cases that are
-common for DMA-based networking.
-
-Signed-off-by: Ben Menchaca <ben.menchaca@qca.qualcomm.com>
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
+diff --git a/arch/mips/include/asm/r4kcache.h b/arch/mips/include/asm/r4kcache.h
+index e5190126..6f81098d 100644
 --- a/arch/mips/include/asm/r4kcache.h
 +++ b/arch/mips/include/asm/r4kcache.h
-@@ -683,16 +683,48 @@ static inline void prot##extra##blast_##
+@@ -683,16 +683,48 @@ static inline void prot##extra##blast_##pfx##cache##_range(unsigned long start,
  						    unsigned long end)	\
  {									\
  	unsigned long lsize = cpu_##desc##_line_size();			\

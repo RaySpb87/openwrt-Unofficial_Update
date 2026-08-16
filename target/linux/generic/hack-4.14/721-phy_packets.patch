@@ -1,21 +1,8 @@
-From ffe387740bbe88dd88bbe04d6375902708003d6e Mon Sep 17 00:00:00 2001
-From: Felix Fietkau <nbd@nbd.name>
-Date: Fri, 7 Jul 2017 17:25:00 +0200
-Subject: net: add packet mangeling patch
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- include/linux/netdevice.h | 11 +++++++++++
- include/linux/skbuff.h    | 14 ++++----------
- net/Kconfig               |  6 ++++++
- net/core/dev.c            | 18 ++++++++++++++----
- net/core/skbuff.c         | 17 +++++++++++++++++
- net/ethernet/eth.c        |  6 ++++++
- 6 files changed, 58 insertions(+), 14 deletions(-)
-
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 6ed01a78..0fa65555 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -1413,6 +1413,7 @@ enum netdev_priv_flags {
+@@ -1418,6 +1418,7 @@ enum netdev_priv_flags {
  	IFF_PHONY_HEADROOM		= 1<<26,
  	IFF_MACSEC			= 1<<27,
  	IFF_L3MDEV_RX_HANDLER		= 1<<28,
@@ -23,7 +10,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  };
  
  #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
-@@ -1443,6 +1444,7 @@ enum netdev_priv_flags {
+@@ -1448,6 +1449,7 @@ enum netdev_priv_flags {
  #define IFF_RXFH_CONFIGURED		IFF_RXFH_CONFIGURED
  #define IFF_MACSEC			IFF_MACSEC
  #define IFF_L3MDEV_RX_HANDLER		IFF_L3MDEV_RX_HANDLER
@@ -31,7 +18,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  /**
   *	struct net_device - The DEVICE structure.
-@@ -1729,6 +1731,11 @@ struct net_device {
+@@ -1733,6 +1735,11 @@ struct net_device {
  	const struct xfrmdev_ops *xfrmdev_ops;
  #endif
  
@@ -43,7 +30,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	const struct header_ops *header_ops;
  
  	unsigned int		flags;
-@@ -1803,6 +1810,10 @@ struct net_device {
+@@ -1806,6 +1813,10 @@ struct net_device {
  	struct mpls_dev __rcu	*mpls_ptr;
  #endif
  
@@ -54,9 +41,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  /*
   * Cache lines mostly used on receive path (including eth_type_trans())
   */
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index cbc1fa2f..d6c7259f 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -2560,6 +2560,10 @@ static inline int pskb_trim(struct sk_bu
+@@ -2561,6 +2561,10 @@ static inline int pskb_trim(struct sk_buff *skb, unsigned int len)
  	return (len < skb->len) ? __pskb_trim(skb, len) : 0;
  }
  
@@ -67,7 +56,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  /**
   *	pskb_trim_unique - remove end from a paged unique (not cloned) buffer
   *	@skb: buffer to alter
-@@ -2691,16 +2695,6 @@ static inline struct sk_buff *dev_alloc_
+@@ -2692,16 +2696,6 @@ static inline struct sk_buff *dev_alloc_skb(unsigned int length)
  }
  
  
@@ -84,6 +73,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  static inline struct sk_buff *netdev_alloc_skb_ip_align(struct net_device *dev,
  		unsigned int length)
  {
+diff --git a/net/Kconfig b/net/Kconfig
+index 3000856a..6d59093c 100644
 --- a/net/Kconfig
 +++ b/net/Kconfig
 @@ -25,6 +25,12 @@ menuconfig NET
@@ -99,9 +90,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  config WANT_COMPAT_NETLINK_MESSAGES
  	bool
  	help
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 112c10be..8b2c90b0 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -3000,10 +3000,20 @@ static int xmit_one(struct sk_buff *skb,
+@@ -3004,10 +3004,20 @@ static int xmit_one(struct sk_buff *skb, struct net_device *dev,
  	if (!list_empty(&ptype_all) || !list_empty(&dev->ptype_all))
  		dev_queue_xmit_nit(skb, dev);
  
@@ -126,6 +119,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  	return rc;
  }
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 6b6309ec..d6ead075 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
 @@ -63,6 +63,7 @@
@@ -136,7 +131,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  #include <net/protocol.h>
  #include <net/dst.h>
-@@ -512,6 +513,22 @@ skb_fail:
+@@ -512,6 +513,22 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
  }
  EXPORT_SYMBOL(__napi_alloc_skb);
  
@@ -159,9 +154,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
  		     int size, unsigned int truesize)
  {
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index dc68d770..9ec92af0 100644
 --- a/net/ethernet/eth.c
 +++ b/net/ethernet/eth.c
-@@ -172,6 +172,12 @@ __be16 eth_type_trans(struct sk_buff *sk
+@@ -172,6 +172,12 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
  	const struct ethhdr *eth;
  
  	skb->dev = dev;

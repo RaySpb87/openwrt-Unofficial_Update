@@ -1,21 +1,8 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Sun, 7 Jan 2018 01:04:19 +0100
-Subject: [PATCH] netfilter: flow table support for IPv6
-
-This patch adds the IPv6 flow table type, that implements the datapath
-flow table to forward IPv6 traffic.
-
-This patch exports ip6_dst_mtu_forward() that is required to check for
-mtu to pass up packets that need PMTUD handling to the classic
-forwarding path.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- create mode 100644 net/ipv6/netfilter/nf_flow_table_ipv6.c
-
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index f127b9a1..84c1c907 100644
 --- a/include/net/ipv6.h
 +++ b/include/net/ipv6.h
-@@ -860,6 +860,8 @@ static inline struct sk_buff *ip6_finish
+@@ -856,6 +856,8 @@ static inline struct sk_buff *ip6_finish_skb(struct sock *sk)
  			      &inet6_sk(sk)->cork);
  }
  
@@ -24,9 +11,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  int ip6_dst_lookup(struct net *net, struct sock *sk, struct dst_entry **dst,
  		   struct flowi6 *fl6);
  struct dst_entry *ip6_dst_lookup_flow(struct net *net, const struct sock *sk, struct flowi6 *fl6,
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index a7814e69..c723a928 100644
 --- a/net/ipv6/ip6_output.c
 +++ b/net/ipv6/ip6_output.c
-@@ -419,7 +419,7 @@ static inline int ip6_forward_finish(str
+@@ -425,7 +425,7 @@ static inline int ip6_forward_finish(struct net *net, struct sock *sk,
  	return dst_output(net, sk, skb);
  }
  
@@ -35,7 +24,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  {
  	unsigned int mtu;
  	struct inet6_dev *idev;
-@@ -439,6 +439,7 @@ static unsigned int ip6_dst_mtu_forward(
+@@ -445,6 +445,7 @@ static unsigned int ip6_dst_mtu_forward(const struct dst_entry *dst)
  
  	return mtu;
  }
@@ -43,6 +32,8 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  
  static bool ip6_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
  {
+diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
+index c764c2a7..8fd20b32 100644
 --- a/net/ipv6/netfilter/Kconfig
 +++ b/net/ipv6/netfilter/Kconfig
 @@ -99,6 +99,14 @@ config NFT_FIB_IPV6
@@ -60,9 +51,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  config NF_DUP_IPV6
  	tristate "Netfilter IPv6 packet duplication to alternate destination"
  	depends on !NF_CONNTRACK || NF_CONNTRACK
+diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
+index c6ee0cdd..95611c4b 100644
 --- a/net/ipv6/netfilter/Makefile
 +++ b/net/ipv6/netfilter/Makefile
-@@ -45,6 +45,9 @@ obj-$(CONFIG_NFT_REDIR_IPV6) += nft_redi
+@@ -45,6 +45,9 @@ obj-$(CONFIG_NFT_REDIR_IPV6) += nft_redir_ipv6.o
  obj-$(CONFIG_NFT_DUP_IPV6) += nft_dup_ipv6.o
  obj-$(CONFIG_NFT_FIB_IPV6) += nft_fib_ipv6.o
  
@@ -72,6 +65,9 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  # matches
  obj-$(CONFIG_IP6_NF_MATCH_AH) += ip6t_ah.o
  obj-$(CONFIG_IP6_NF_MATCH_EUI64) += ip6t_eui64.o
+diff --git a/net/ipv6/netfilter/nf_flow_table_ipv6.c b/net/ipv6/netfilter/nf_flow_table_ipv6.c
+new file mode 100644
+index 00000000..d7d073bb
 --- /dev/null
 +++ b/net/ipv6/netfilter/nf_flow_table_ipv6.c
 @@ -0,0 +1,277 @@

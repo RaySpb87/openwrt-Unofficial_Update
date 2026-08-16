@@ -1,20 +1,8 @@
-From: Felix Fietkau <nbd@nbd.name>
-Date: Tue, 5 Dec 2017 12:46:01 +0100
-Subject: [PATCH] MIPS: mm: remove no-op dma_map_ops where possible
-
-If no post-DMA flush is required, and the platform does not provide
-plat_unmap_dma_mem(), there is no need to include unmap or sync_for_cpu
-ops.
-
-With this patch they are compiled out to improve icache footprint
-on devices that handle lots of DMA traffic (especially network routers).
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
-
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+index e6e8b1e3..63c09baa 100644
 --- a/arch/mips/Kconfig
 +++ b/arch/mips/Kconfig
-@@ -221,6 +221,7 @@ config BMIPS_GENERIC
+@@ -222,6 +222,7 @@ config BMIPS_GENERIC
  	select BRCMSTB_L2_IRQ
  	select IRQ_MIPS_CPU
  	select DMA_NONCOHERENT
@@ -22,7 +10,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	select SYS_SUPPORTS_32BIT_KERNEL
  	select SYS_SUPPORTS_LITTLE_ENDIAN
  	select SYS_SUPPORTS_BIG_ENDIAN
-@@ -349,6 +350,7 @@ config MACH_JAZZ
+@@ -350,6 +351,7 @@ config MACH_JAZZ
  	select CSRC_R4K
  	select DEFAULT_SGI_PARTITION if CPU_BIG_ENDIAN
  	select GENERIC_ISA_DMA
@@ -30,7 +18,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	select HAVE_PCSPKR_PLATFORM
  	select IRQ_MIPS_CPU
  	select I8253
-@@ -1133,6 +1135,9 @@ config DMA_NONCOHERENT
+@@ -1134,6 +1136,9 @@ config DMA_NONCOHERENT
  	bool
  	select NEED_DMA_MAP_STATE
  
@@ -40,7 +28,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  config NEED_DMA_MAP_STATE
  	bool
  
-@@ -1658,6 +1663,7 @@ config CPU_R10000
+@@ -1659,6 +1664,7 @@ config CPU_R10000
  	select CPU_SUPPORTS_64BIT_KERNEL
  	select CPU_SUPPORTS_HIGHMEM
  	select CPU_SUPPORTS_HUGEPAGES
@@ -48,7 +36,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	help
  	  MIPS Technologies R10000-series processors.
  
-@@ -1906,9 +1912,11 @@ config SYS_HAS_CPU_MIPS32_R3_5
+@@ -1907,9 +1913,11 @@ config SYS_HAS_CPU_MIPS32_R3_5
  	bool
  
  config SYS_HAS_CPU_MIPS32_R5
@@ -60,7 +48,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	bool
  
  config SYS_HAS_CPU_MIPS64_R1
-@@ -1918,6 +1926,7 @@ config SYS_HAS_CPU_MIPS64_R2
+@@ -1919,6 +1927,7 @@ config SYS_HAS_CPU_MIPS64_R2
  	bool
  
  config SYS_HAS_CPU_MIPS64_R6
@@ -68,9 +56,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	bool
  
  config SYS_HAS_CPU_R3000
+diff --git a/arch/mips/mm/dma-default.c b/arch/mips/mm/dma-default.c
+index a068813d..a003f42d 100644
 --- a/arch/mips/mm/dma-default.c
 +++ b/arch/mips/mm/dma-default.c
-@@ -267,8 +267,9 @@ static inline void __dma_sync(struct pag
+@@ -267,8 +267,9 @@ static inline void __dma_sync(struct page *page,
  	} while (left);
  }
  
@@ -82,7 +72,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  {
  	if (cpu_needs_post_dma_flush(dev) && !(attrs & DMA_ATTR_SKIP_CPU_SYNC))
  		__dma_sync(dma_addr_to_page(dev, dma_addr),
-@@ -308,9 +309,10 @@ static dma_addr_t mips_dma_map_page(stru
+@@ -308,9 +309,10 @@ static dma_addr_t mips_dma_map_page(struct device *dev, struct page *page,
  	return plat_map_dma_mem_page(dev, page) + offset;
  }
  
@@ -96,7 +86,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  {
  	int i;
  	struct scatterlist *sg;
-@@ -325,8 +327,9 @@ static void mips_dma_unmap_sg(struct dev
+@@ -325,8 +327,9 @@ static void mips_dma_unmap_sg(struct device *dev, struct scatterlist *sglist,
  	}
  }
  
@@ -108,7 +98,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  {
  	if (cpu_needs_post_dma_flush(dev))
  		__dma_sync(dma_addr_to_page(dev, dma_handle),
-@@ -342,9 +345,9 @@ static void mips_dma_sync_single_for_dev
+@@ -342,9 +345,9 @@ static void mips_dma_sync_single_for_device(struct device *dev,
  			   dma_handle & ~PAGE_MASK, size, direction);
  }
  
@@ -121,7 +111,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  {
  	int i;
  	struct scatterlist *sg;
-@@ -394,12 +397,14 @@ static const struct dma_map_ops mips_def
+@@ -394,12 +397,14 @@ static const struct dma_map_ops mips_default_dma_map_ops = {
  	.free = mips_dma_free_coherent,
  	.mmap = mips_dma_mmap,
  	.map_page = mips_dma_map_page,

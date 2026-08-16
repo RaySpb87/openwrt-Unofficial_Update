@@ -1,20 +1,8 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: Upgrade to Linux 2.6.19
-
-- Includes large parts of the patch from #1021 by dpalffy
-- Includes RB532 NAND driver changes by n0-1
-
-[john@phrozen.org: feix will add this to his upstream queue]
-
-lede-commit: bff468813f78f81e36ebb2a3f4354de7365e640f
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- Makefile | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
+diff --git a/Makefile b/Makefile
+index f0279eca..76552b20 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -652,9 +652,9 @@ KBUILD_CFLAGS	+= $(call cc-disable-warni
+@@ -660,9 +660,9 @@ KBUILD_CFLAGS	+= $(call cc-disable-warning, address-of-packed-member)
  KBUILD_CFLAGS	+= $(call cc-disable-warning, attribute-alias)
  
  ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE

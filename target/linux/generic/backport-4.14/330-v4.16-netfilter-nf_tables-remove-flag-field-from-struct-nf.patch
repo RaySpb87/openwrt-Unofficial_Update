@@ -1,16 +1,8 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue, 19 Dec 2017 14:07:52 +0100
-Subject: [PATCH] netfilter: nf_tables: remove flag field from struct
- nft_af_info
-
-Replace it by a direct check for the netdev protocol family.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index 1af68a81..1de4e261 100644
 --- a/include/net/netfilter/nf_tables.h
 +++ b/include/net/netfilter/nf_tables.h
-@@ -962,10 +962,6 @@ struct nft_table {
+@@ -1009,10 +1009,6 @@ struct nft_table {
  	char				*name;
  };
  
@@ -21,7 +13,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  /**
   *	struct nft_af_info - nf_tables address family info
   *
-@@ -973,14 +969,12 @@ enum nft_af_flags {
+@@ -1020,14 +1016,12 @@ enum nft_af_flags {
   *	@family: address family
   *	@owner: module owner
   *	@tables: used internally
@@ -36,9 +28,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  };
  
  int nft_register_afinfo(struct net *, struct nft_af_info *);
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 9a52c7d9..905af769 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
-@@ -1391,7 +1391,7 @@ static int nft_chain_parse_hook(struct n
+@@ -1414,7 +1414,7 @@ static int nft_chain_parse_hook(struct net *net,
  	hook->type = type;
  
  	hook->dev = NULL;
@@ -47,9 +41,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  		char ifname[IFNAMSIZ];
  
  		if (!ha[NFTA_HOOK_DEV]) {
+diff --git a/net/netfilter/nf_tables_netdev.c b/net/netfilter/nf_tables_netdev.c
+index 3da3dc7d..c7f671da 100644
 --- a/net/netfilter/nf_tables_netdev.c
 +++ b/net/netfilter/nf_tables_netdev.c
-@@ -41,7 +41,6 @@ nft_do_chain_netdev(void *priv, struct s
+@@ -41,7 +41,6 @@ nft_do_chain_netdev(void *priv, struct sk_buff *skb,
  static struct nft_af_info nft_af_netdev __read_mostly = {
  	.family		= NFPROTO_NETDEV,
  	.owner		= THIS_MODULE,

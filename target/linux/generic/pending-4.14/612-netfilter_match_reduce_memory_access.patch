@@ -1,11 +1,5 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: netfilter: reduce match memory access
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- net/ipv4/netfilter/ip_tables.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 6238a911..c5fd1559 100644
 --- a/net/ipv4/netfilter/ip_tables.c
 +++ b/net/ipv4/netfilter/ip_tables.c
 @@ -55,9 +55,9 @@ ip_packet_match(const struct iphdr *ip,

@@ -1,3 +1,5 @@
+diff --git a/arch/mips/pci/pci-mt7620.c b/arch/mips/pci/pci-mt7620.c
+index e3af533d..09d29b6c 100644
 --- a/arch/mips/pci/pci-mt7620.c
 +++ b/arch/mips/pci/pci-mt7620.c
 @@ -35,6 +35,7 @@
@@ -8,7 +10,7 @@
  #define PDRV_SW_SET			(1<<31)
  #define LC_CKDRVPD			(1<<19)
  #define LC_CKDRVOHZ			(1<<18)
-@@ -242,8 +243,8 @@ static int mt7620_pci_hw_init(struct pla
+@@ -242,8 +243,8 @@ static int mt7620_pci_hw_init(struct platform_device *pdev)
  	rt_sysc_m32(0, RALINK_PCIE0_CLK_EN, RALINK_CLKCFG1);
  	mdelay(100);
  

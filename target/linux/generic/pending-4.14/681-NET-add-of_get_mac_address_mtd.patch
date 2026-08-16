@@ -1,18 +1,5 @@
-From: John Crispin <blogic@openwrt.org>
-Subject: NET: add mtd-mac-address support to of_get_mac_address()
-
-Many embedded devices have information such as mac addresses stored inside mtd
-devices. This patch allows us to add a property inside a node describing a
-network interface. The new property points at a mtd partition with an offset
-where the mac address can be found.
-
-Signed-off-by: John Crispin <blogic@openwrt.org>
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- drivers/of/of_net.c    |   37 +++++++++++++++++++++++++++++++++++++
- include/linux/of_net.h |    1 +
- 2 files changed, 38 insertions(+)
-
+diff --git a/drivers/of/of_net.c b/drivers/of/of_net.c
+index d820f3ed..d3065ced 100644
 --- a/drivers/of/of_net.c
 +++ b/drivers/of/of_net.c
 @@ -10,6 +10,7 @@
@@ -23,7 +10,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  /**
   * of_get_phy_mode - Get phy mode for given device_node
-@@ -38,7 +39,7 @@ int of_get_phy_mode(struct device_node *
+@@ -38,7 +39,7 @@ int of_get_phy_mode(struct device_node *np)
  }
  EXPORT_SYMBOL_GPL(of_get_phy_mode);
  
@@ -32,7 +19,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  {
  	struct property *pp = of_find_property(np, name, NULL);
  
-@@ -47,6 +48,79 @@ static const void *of_get_mac_addr(struc
+@@ -47,6 +48,79 @@ static const void *of_get_mac_addr(struct device_node *np, const char *name)
  	return NULL;
  }
  
@@ -112,7 +99,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  /**
   * Search the device tree for the best MAC address to use.  'mac-address' is
   * checked first, because that is supposed to contain to "most recent" MAC
-@@ -64,11 +138,18 @@ static const void *of_get_mac_addr(struc
+@@ -64,11 +138,18 @@ static const void *of_get_mac_addr(struct device_node *np, const char *name)
   * addresses.  Some older U-Boots only initialized 'local-mac-address'.  In
   * this case, the real MAC is in 'local-mac-address', and 'mac-address' exists
   * but is all zeros.

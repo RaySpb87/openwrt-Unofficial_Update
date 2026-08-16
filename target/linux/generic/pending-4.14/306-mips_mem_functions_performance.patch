@@ -1,19 +1,8 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: [PATCH] mips: allow the compiler to optimize memset, memcmp, memcpy  for better performance and (in some instances) smaller code
-
-lede-commit: 07e59c7bc7f375f792ec9734be42fe4fa391a8bb
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- arch/mips/boot/compressed/Makefile |  3 ++-
- arch/mips/include/asm/string.h     | 38 ++++++++++++++++++++++++++++++++++++++
- arch/mips/lib/Makefile             |  2 +-
- arch/mips/lib/memcmp.c             | 22 ++++++++++++++++++++++
- 4 files changed, 63 insertions(+), 2 deletions(-)
- create mode 100644 arch/mips/lib/memcmp.c
-
+diff --git a/arch/mips/boot/compressed/Makefile b/arch/mips/boot/compressed/Makefile
+index b5f08fac..1222171a 100644
 --- a/arch/mips/boot/compressed/Makefile
 +++ b/arch/mips/boot/compressed/Makefile
-@@ -23,7 +23,8 @@ KBUILD_CFLAGS := $(filter-out -pg, $(KBU
+@@ -23,7 +23,8 @@ KBUILD_CFLAGS := $(filter-out -pg, $(KBUILD_CFLAGS))
  KBUILD_CFLAGS := $(filter-out -fstack-protector, $(KBUILD_CFLAGS))
  
  KBUILD_CFLAGS := $(KBUILD_CFLAGS) -D__KERNEL__ \
@@ -23,9 +12,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  KBUILD_AFLAGS := $(KBUILD_AFLAGS) -D__ASSEMBLY__ \
  	-DBOOT_HEAP_SIZE=$(BOOT_HEAP_SIZE) \
+diff --git a/arch/mips/include/asm/string.h b/arch/mips/include/asm/string.h
+index 29030cb3..7b737f9b 100644
 --- a/arch/mips/include/asm/string.h
 +++ b/arch/mips/include/asm/string.h
-@@ -140,4 +140,42 @@ extern void *memcpy(void *__to, __const_
+@@ -140,4 +140,42 @@ extern void *memcpy(void *__to, __const__ void *__from, size_t __n);
  #define __HAVE_ARCH_MEMMOVE
  extern void *memmove(void *__dest, __const__ void *__src, size_t __n);
  
@@ -68,6 +59,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
 +#endif
 +
  #endif /* _ASM_STRING_H */
+diff --git a/arch/mips/lib/Makefile b/arch/mips/lib/Makefile
+index e84e1265..93c590cb 100644
 --- a/arch/mips/lib/Makefile
 +++ b/arch/mips/lib/Makefile
 @@ -5,7 +5,7 @@
@@ -79,6 +72,9 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  obj-y			+= iomap.o iomap_copy.o
  obj-$(CONFIG_PCI)	+= iomap-pci.o
+diff --git a/arch/mips/lib/memcmp.c b/arch/mips/lib/memcmp.c
+new file mode 100644
+index 00000000..35ef1646
 --- /dev/null
 +++ b/arch/mips/lib/memcmp.c
 @@ -0,0 +1,22 @@

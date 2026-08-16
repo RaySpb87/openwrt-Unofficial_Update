@@ -1,3 +1,5 @@
+diff --git a/arch/mips/pci/pci-mt7620.c b/arch/mips/pci/pci-mt7620.c
+index d67de97e..e3af533d 100644
 --- a/arch/mips/pci/pci-mt7620.c
 +++ b/arch/mips/pci/pci-mt7620.c
 @@ -33,7 +33,6 @@

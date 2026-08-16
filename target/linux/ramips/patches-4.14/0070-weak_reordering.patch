@@ -1,3 +1,5 @@
+diff --git a/arch/mips/ralink/Kconfig b/arch/mips/ralink/Kconfig
+index 56585615..002f504e 100644
 --- a/arch/mips/ralink/Kconfig
 +++ b/arch/mips/ralink/Kconfig
 @@ -58,6 +58,7 @@ choice

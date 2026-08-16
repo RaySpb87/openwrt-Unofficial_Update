@@ -1,15 +1,8 @@
-From: Mark Miller <mark@mirell.org>
-Subject: mips: expose CONFIG_BOOT_RAW
-
-This exposes the CONFIG_BOOT_RAW symbol in Kconfig. This is needed on
-certain Broadcom chipsets running CFE in order to load the kernel.
-
-Signed-off-by: Mark Miller <mark@mirell.org>
-Acked-by: Rob Landley <rob@landley.net>
----
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+index 59f55427..5682d792 100644
 --- a/arch/mips/Kconfig
 +++ b/arch/mips/Kconfig
-@@ -1072,9 +1072,6 @@ config FW_ARC
+@@ -1073,9 +1073,6 @@ config FW_ARC
  config ARCH_MAY_HAVE_PC_FDC
  	bool
  
@@ -19,7 +12,7 @@ Acked-by: Rob Landley <rob@landley.net>
  config CEVT_BCM1480
  	bool
  
-@@ -2973,6 +2970,18 @@ choice
+@@ -2974,6 +2971,18 @@ choice
  		bool "Extend builtin kernel arguments with bootloader arguments"
  endchoice
  

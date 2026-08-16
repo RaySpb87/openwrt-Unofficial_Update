@@ -1,19 +1,8 @@
-From: Felix Fietkau <nbd@nbd.name>
-Date: Sun, 25 Feb 2018 15:41:11 +0100
-Subject: [PATCH] netfilter: nf_flow_table: add support for sending flows
- back to the slow path
-
-Reset the timeout. For TCP, also set the state to indicate to use the
-next incoming packets to reset window tracking.
-This allows the slow path to take over again once the offload state has
-been torn down
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
-
+diff --git a/net/netfilter/nf_flow_table_core.c b/net/netfilter/nf_flow_table_core.c
+index a1ecee9e..a9d3099f 100644
 --- a/net/netfilter/nf_flow_table_core.c
 +++ b/net/netfilter/nf_flow_table_core.c
-@@ -100,6 +100,43 @@ err_ct_refcnt:
+@@ -100,6 +100,43 @@ flow_offload_alloc(struct nf_conn *ct, struct nf_flow_route *route)
  }
  EXPORT_SYMBOL_GPL(flow_offload_alloc);
  
@@ -57,7 +46,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  void flow_offload_free(struct flow_offload *flow)
  {
  	struct flow_offload_entry *e;
-@@ -107,7 +144,8 @@ void flow_offload_free(struct flow_offlo
+@@ -107,7 +144,8 @@ void flow_offload_free(struct flow_offload *flow)
  	dst_release(flow->tuplehash[FLOW_OFFLOAD_DIR_ORIGINAL].tuple.dst_cache);
  	dst_release(flow->tuplehash[FLOW_OFFLOAD_DIR_REPLY].tuple.dst_cache);
  	e = container_of(flow, struct flow_offload_entry, flow);
@@ -76,7 +65,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	rhashtable_remove_fast(&flow_table->rhashtable,
  			       &flow->tuplehash[FLOW_OFFLOAD_DIR_ORIGINAL].node,
  			       nf_flow_offload_rhash_params);
-@@ -171,12 +211,20 @@ static void flow_offload_del(struct nf_f
+@@ -171,12 +211,20 @@ static void flow_offload_del(struct nf_flowtable *flow_table,
  			       &flow->tuplehash[FLOW_OFFLOAD_DIR_REPLY].node,
  			       nf_flow_offload_rhash_params);
  

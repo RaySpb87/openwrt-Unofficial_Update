@@ -1,13 +1,5 @@
-From 5d301596fdc72f6cb672f72eb3c66e7cddefb103 Mon Sep 17 00:00:00 2001
-From: Felix Fietkau <nbd@nbd.name>
-Date: Sat, 8 Jul 2017 08:26:02 +0200
-Subject: initramfs: always create console node
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- scripts/gen_initramfs_list.sh | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
-
+diff --git a/scripts/gen_initramfs_list.sh b/scripts/gen_initramfs_list.sh
+index cebb87a1..93a759b8 100755
 --- a/scripts/gen_initramfs_list.sh
 +++ b/scripts/gen_initramfs_list.sh
 @@ -59,6 +59,18 @@ default_initramfs() {

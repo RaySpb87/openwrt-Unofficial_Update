@@ -1,11 +1,5 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: net: phy: at803x: add support for AT8032
-
-Like AT8030, this PHY needs the GPIO reset workaround
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
-
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+index e911e499..b3ed39c2 100644
 --- a/drivers/net/phy/at803x.c
 +++ b/drivers/net/phy/at803x.c
 @@ -62,8 +62,10 @@
@@ -19,7 +13,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  MODULE_DESCRIPTION("Atheros 803x PHY driver");
  MODULE_AUTHOR("Matus Ujhelyi");
-@@ -256,7 +258,8 @@ static int at803x_probe(struct phy_devic
+@@ -256,7 +258,8 @@ static int at803x_probe(struct phy_device *phydev)
  	if (!priv)
  		return -ENOMEM;
  
@@ -29,7 +23,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  		goto does_not_require_reset_workaround;
  
  	gpiod_reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
-@@ -332,7 +335,7 @@ static void at803x_link_change_notify(st
+@@ -332,7 +335,7 @@ static void at803x_link_change_notify(struct phy_device *phydev)
  	struct at803x_priv *priv = phydev->priv;
  
  	/*
@@ -38,7 +32,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	 * signalled. This is necessary to circumvent a hardware bug that
  	 * occurs when the cable is unplugged while TX packets are pending
  	 * in the FIFO. In such cases, the FIFO enters an error mode it
-@@ -444,6 +447,24 @@ static struct phy_driver at803x_driver[]
+@@ -444,6 +447,24 @@ static struct phy_driver at803x_driver[] = {
  	.aneg_done		= at803x_aneg_done,
  	.ack_interrupt		= &at803x_ack_interrupt,
  	.config_intr		= &at803x_config_intr,

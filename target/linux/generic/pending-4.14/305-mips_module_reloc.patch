@@ -1,17 +1,8 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: mips: replace -mlong-calls with -mno-long-calls to make function calls faster in kernel modules to achieve this, try to
-
-lede-commit: 3b3d64743ba2a874df9d70cd19e242205b0a788c
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- arch/mips/Makefile             |   5 +
- arch/mips/include/asm/module.h |   5 +
- arch/mips/kernel/module.c      | 279 ++++++++++++++++++++++++++++++++++++++++-
- 3 files changed, 284 insertions(+), 5 deletions(-)
-
+diff --git a/arch/mips/Makefile b/arch/mips/Makefile
+index 0116aca2..1ac2fbb8 100644
 --- a/arch/mips/Makefile
 +++ b/arch/mips/Makefile
-@@ -93,8 +93,18 @@ all-$(CONFIG_SYS_SUPPORTS_ZBOOT)+= vmlin
+@@ -93,8 +93,18 @@ all-$(CONFIG_SYS_SUPPORTS_ZBOOT)+= vmlinuz
  cflags-y			+= -G 0 -mno-abicalls -fno-pic -pipe -mno-branch-likely
  cflags-y			+= -msoft-float
  LDFLAGS_vmlinux			+= -G 0 -static -n -nostdlib
@@ -30,6 +21,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  ifeq ($(CONFIG_RELOCATABLE),y)
  LDFLAGS_vmlinux			+= --emit-relocs
+diff --git a/arch/mips/include/asm/module.h b/arch/mips/include/asm/module.h
+index 6dc0b21b..5a801857 100644
 --- a/arch/mips/include/asm/module.h
 +++ b/arch/mips/include/asm/module.h
 @@ -12,6 +12,11 @@ struct mod_arch_specific {
@@ -44,6 +37,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  };
  
  typedef uint8_t Elf64_Byte;		/* Type for a 8-bit quantity.  */
+diff --git a/arch/mips/kernel/module.c b/arch/mips/kernel/module.c
+index 49160513..87d214ec 100644
 --- a/arch/mips/kernel/module.c
 +++ b/arch/mips/kernel/module.c
 @@ -44,14 +44,221 @@ struct mips_hi16 {
@@ -269,7 +264,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  static int apply_r_mips_none(struct module *me, u32 *location,
  			     u32 base, Elf_Addr v, bool rela)
-@@ -67,9 +274,40 @@ static int apply_r_mips_32(struct module
+@@ -67,9 +274,40 @@ static int apply_r_mips_32(struct module *me, u32 *location,
  	return 0;
  }
  
@@ -310,7 +305,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	if (v % 4) {
  		pr_err("module %s: dangerous R_MIPS_26 relocation\n",
  		       me->name);
-@@ -77,13 +315,17 @@ static int apply_r_mips_26(struct module
+@@ -77,13 +315,17 @@ static int apply_r_mips_26(struct module *me, u32 *location,
  	}
  
  	if ((v & 0xf0000000) != (((unsigned long)location + 4) & 0xf0000000)) {

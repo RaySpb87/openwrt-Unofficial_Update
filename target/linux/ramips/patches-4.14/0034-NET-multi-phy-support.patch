@@ -1,17 +1,8 @@
-From 0b6eb1e68290243d439ee330ea8d0b239a5aec69 Mon Sep 17 00:00:00 2001
-From: John Crispin <blogic@openwrt.org>
-Date: Sun, 27 Jul 2014 09:38:50 +0100
-Subject: [PATCH 34/53] NET: multi phy support
-
-Signed-off-by: John Crispin <blogic@openwrt.org>
----
- drivers/net/phy/phy.c |    9 ++++++---
- include/linux/phy.h   |    1 +
- 2 files changed, 7 insertions(+), 3 deletions(-)
-
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index e5b86f07..ffc7c416 100644
 --- a/drivers/net/phy/phy.c
 +++ b/drivers/net/phy/phy.c
-@@ -914,7 +914,10 @@ void phy_state_machine(struct work_struc
+@@ -914,7 +914,10 @@ void phy_state_machine(struct work_struct *work)
  		/* If the link is down, give up on negotiation for now */
  		if (!phydev->link) {
  			phydev->state = PHY_NOLINK;
@@ -23,7 +14,7 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  			break;
  		}
  
-@@ -1001,7 +1004,10 @@ void phy_state_machine(struct work_struc
+@@ -1001,7 +1004,10 @@ void phy_state_machine(struct work_struct *work)
  			phy_link_up(phydev);
  		} else {
  			phydev->state = PHY_NOLINK;
@@ -35,7 +26,7 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  		}
  
  		if (phy_interrupt_is_valid(phydev))
-@@ -1011,7 +1017,10 @@ void phy_state_machine(struct work_struc
+@@ -1011,7 +1017,10 @@ void phy_state_machine(struct work_struct *work)
  	case PHY_HALTED:
  		if (phydev->link) {
  			phydev->link = 0;
@@ -47,6 +38,8 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  			do_suspend = true;
  		}
  		break;
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index ec069c97..3c764683 100644
 --- a/include/linux/phy.h
 +++ b/include/linux/phy.h
 @@ -414,6 +414,7 @@ struct phy_device {

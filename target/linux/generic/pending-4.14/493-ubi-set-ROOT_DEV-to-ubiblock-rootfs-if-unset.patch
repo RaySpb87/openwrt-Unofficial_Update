@@ -1,11 +1,5 @@
-From: Daniel Golle <daniel@makrotopia.org>
-Subject: ubi: set ROOT_DEV to ubiblock "rootfs" if unset
-
-Signed-off-by: Daniel Golle <daniel@makrotopia.org>
----
- drivers/mtd/ubi/block.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
-
+diff --git a/drivers/mtd/ubi/block.c b/drivers/mtd/ubi/block.c
+index ddfa6ab1..f6204410 100644
 --- a/drivers/mtd/ubi/block.c
 +++ b/drivers/mtd/ubi/block.c
 @@ -50,6 +50,7 @@
@@ -16,7 +10,7 @@ Signed-off-by: Daniel Golle <daniel@makrotopia.org>
  
  #include "ubi-media.h"
  #include "ubi.h"
-@@ -445,6 +446,15 @@ int ubiblock_create(struct ubi_volume_in
+@@ -445,6 +446,15 @@ int ubiblock_create(struct ubi_volume_info *vi)
  	dev_info(disk_to_dev(dev->gd), "created from ubi%d:%d(%s)",
  		 dev->ubi_num, dev->vol_id, vi->name);
  	mutex_unlock(&devices_mutex);

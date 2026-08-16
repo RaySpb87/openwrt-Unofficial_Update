@@ -1,18 +1,5 @@
-From 236c1acdfef5958010ac9814a9872e0a46fd78ee Mon Sep 17 00:00:00 2001
-From: John Crispin <john@phrozen.org>
-Date: Fri, 7 Jul 2017 17:13:44 +0200
-Subject: rfkill: add fake rfkill support
-
-allow building of modules depending on RFKILL even if RFKILL is not enabled.
-
-Signed-off-by: John Crispin <john@phrozen.org>
----
- include/linux/rfkill.h |  2 +-
- net/Makefile           |  2 +-
- net/rfkill/Kconfig     | 14 +++++++++-----
- net/rfkill/Makefile    |  2 +-
- 4 files changed, 12 insertions(+), 8 deletions(-)
-
+diff --git a/include/linux/rfkill.h b/include/linux/rfkill.h
+index e6a0031d..21cf4dab 100644
 --- a/include/linux/rfkill.h
 +++ b/include/linux/rfkill.h
 @@ -64,7 +64,7 @@ struct rfkill_ops {
@@ -24,9 +11,11 @@ Signed-off-by: John Crispin <john@phrozen.org>
  /**
   * rfkill_alloc - allocate rfkill structure
   * @name: name of the struct -- the string is not copied internally
+diff --git a/net/Makefile b/net/Makefile
+index 1cbe09c6..5cb1cac9 100644
 --- a/net/Makefile
 +++ b/net/Makefile
-@@ -53,7 +53,7 @@ obj-$(CONFIG_TIPC)		+= tipc/
+@@ -52,7 +52,7 @@ obj-$(CONFIG_TIPC)		+= tipc/
  obj-$(CONFIG_NETLABEL)		+= netlabel/
  obj-$(CONFIG_IUCV)		+= iucv/
  obj-$(CONFIG_SMC)		+= smc/
@@ -35,6 +24,8 @@ Signed-off-by: John Crispin <john@phrozen.org>
  obj-$(CONFIG_NET_9P)		+= 9p/
  obj-$(CONFIG_CAIF)		+= caif/
  ifneq ($(CONFIG_DCB),)
+diff --git a/net/rfkill/Kconfig b/net/rfkill/Kconfig
+index 060600b0..76f0537a 100644
 --- a/net/rfkill/Kconfig
 +++ b/net/rfkill/Kconfig
 @@ -1,7 +1,11 @@
@@ -73,6 +64,8 @@ Signed-off-by: John Crispin <john@phrozen.org>
  	depends on GPIOLIB || COMPILE_TEST
  	default n
  	help
+diff --git a/net/rfkill/Makefile b/net/rfkill/Makefile
+index 87a80ade..a66f9b07 100644
 --- a/net/rfkill/Makefile
 +++ b/net/rfkill/Makefile
 @@ -4,5 +4,5 @@

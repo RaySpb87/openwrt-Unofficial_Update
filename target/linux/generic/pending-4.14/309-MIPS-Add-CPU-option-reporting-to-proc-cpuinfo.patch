@@ -1,23 +1,8 @@
-From 87ec87c2ad615c1a177cd08ef5fa29fc739f6e50 Mon Sep 17 00:00:00 2001
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Date: Sun, 23 Dec 2018 18:06:53 +0100
-Subject: [PATCH] MIPS: Add CPU option reporting to /proc/cpuinfo
-
-Many MIPS CPUs have optional CPU features which are not activates for
-all CPU cores. Print the CPU options which are implemented in the core
-in /proc/cpuinfo. This makes it possible to see what features are
-supported and which are not supported. This should cover all standard
-MIPS extensions, before it only printed information about the main MIPS
-ASEs.
-
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
----
- arch/mips/kernel/proc.c | 116 ++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 116 insertions(+)
-
+diff --git a/arch/mips/kernel/proc.c b/arch/mips/kernel/proc.c
+index 0f1ec08b..ece59b8f 100644
 --- a/arch/mips/kernel/proc.c
 +++ b/arch/mips/kernel/proc.c
-@@ -130,6 +130,120 @@ static int show_cpuinfo(struct seq_file
+@@ -130,6 +130,120 @@ static int show_cpuinfo(struct seq_file *m, void *v)
  		seq_printf(m, "micromips kernel\t: %s\n",
  		      (read_c0_config3() & MIPS_CONF3_ISA_OE) ?  "yes" : "no");
  	}

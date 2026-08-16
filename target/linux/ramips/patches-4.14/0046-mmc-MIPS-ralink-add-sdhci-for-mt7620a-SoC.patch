@@ -1,36 +1,15 @@
-From 23147af14531cbdada194b94120ef8774f46292d Mon Sep 17 00:00:00 2001
-From: John Crispin <blogic@openwrt.org>
-Date: Thu, 13 Nov 2014 19:08:40 +0100
-Subject: [PATCH 46/53] mmc: MIPS: ralink: add sdhci for mt7620a SoC
-
-Signed-off-by: John Crispin <blogic@openwrt.org>
----
- drivers/mmc/host/Kconfig             |    2 +
- drivers/mmc/host/Makefile            |    1 +
- drivers/mmc/host/mtk-mmc/Kconfig     |   16 +
- drivers/mmc/host/mtk-mmc/Makefile    |   42 +
- drivers/mmc/host/mtk-mmc/board.h     |  137 ++
- drivers/mmc/host/mtk-mmc/dbg.c       |  347 ++++
- drivers/mmc/host/mtk-mmc/dbg.h       |  156 ++
- drivers/mmc/host/mtk-mmc/mt6575_sd.h | 1001 +++++++++++
- drivers/mmc/host/mtk-mmc/sd.c        | 3060 ++++++++++++++++++++++++++++++++++
- 9 files changed, 4762 insertions(+)
- create mode 100644 drivers/mmc/host/mtk-mmc/Kconfig
- create mode 100644 drivers/mmc/host/mtk-mmc/Makefile
- create mode 100644 drivers/mmc/host/mtk-mmc/board.h
- create mode 100644 drivers/mmc/host/mtk-mmc/dbg.c
- create mode 100644 drivers/mmc/host/mtk-mmc/dbg.h
- create mode 100644 drivers/mmc/host/mtk-mmc/mt6575_sd.h
- create mode 100644 drivers/mmc/host/mtk-mmc/sd.c
-
+diff --git a/drivers/mmc/host/Kconfig b/drivers/mmc/host/Kconfig
+index 556070da..28a80f7e 100644
 --- a/drivers/mmc/host/Kconfig
 +++ b/drivers/mmc/host/Kconfig
-@@ -901,3 +901,5 @@ config MMC_SDHCI_XENON
+@@ -902,3 +902,5 @@ config MMC_SDHCI_XENON
  	  This selects Marvell Xenon eMMC/SD/SDIO SDHCI.
  	  If you have a controller with this interface, say Y or M here.
  	  If unsure, say N.
 +
 +source "drivers/mmc/host/mtk-mmc/Kconfig"
+diff --git a/drivers/mmc/host/Makefile b/drivers/mmc/host/Makefile
+index 7c7b29ff..a1fcf580 100644
 --- a/drivers/mmc/host/Makefile
 +++ b/drivers/mmc/host/Makefile
 @@ -3,6 +3,7 @@

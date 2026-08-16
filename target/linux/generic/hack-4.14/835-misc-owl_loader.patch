@@ -1,24 +1,5 @@
-From dd36f935973d91644449bd9749f6062a2bed821b Mon Sep 17 00:00:00 2001
-From: Christian Lamparter <chunkeey@googlemail.com>
-Date: Fri, 7 Jul 2017 17:26:46 +0200
-Subject: misc: owl-loader for delayed Atheros ath9k fixup
-
-Some devices (like the Cisco Meraki Z1 Cloud Managed Teleworker Gateway)
-need to be able to initialize the PCIe wifi device. Normally, this is done
-during the early stages of booting linux, because the necessary init code
-is read from the memory mapped SPI and passed to pci_enable_ath9k_fixup.
-However,this isn't possible for devices which have the init code for the
-Atheros chip stored on NAND in an UBI volume. Hence, this module can be
-used to initialze the chip when the user-space is ready to extract the
-init code.
-
-Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
----
- drivers/misc/Kconfig  | 12 ++++++++++++
- drivers/misc/Makefile |  1 +
- 2 files changed, 13 insertions(+)
-
+diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
+index 8136dc7e..f506e889 100644
 --- a/drivers/misc/Kconfig
 +++ b/drivers/misc/Kconfig
 @@ -151,6 +151,18 @@ config SGI_IOC4
@@ -40,9 +21,11 @@ Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
  config TIFM_CORE
  	tristate "TI Flash Media interface support"
  	depends on PCI
+diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
+index cc0df728..572508df 100644
 --- a/drivers/misc/Makefile
 +++ b/drivers/misc/Makefile
-@@ -13,6 +13,7 @@ obj-$(CONFIG_ATMEL_TCLIB)	+= atmel_tclib
+@@ -13,6 +13,7 @@ obj-$(CONFIG_ATMEL_TCLIB)	+= atmel_tclib.o
  obj-$(CONFIG_DUMMY_IRQ)		+= dummy-irq.o
  obj-$(CONFIG_ICS932S401)	+= ics932s401.o
  obj-$(CONFIG_LKDTM)		+= lkdtm.o

@@ -1,20 +1,5 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Sun, 7 Jan 2018 01:04:11 +0100
-Subject: [PATCH] netfilter: add generic flow table infrastructure
-
-This patch defines the API to interact with flow tables, this allows to
-add, delete and lookup for entries in the flow table. This also adds the
-generic garbage code that removes entries that have expired, ie. no
-traffic has been seen for a while.
-
-Users of the flow table infrastructure can delete entries via
-flow_offload_dead(), which sets the dying bit, this signals the garbage
-collector to release an entry from user context.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- create mode 100644 net/netfilter/nf_flow_table.c
-
+diff --git a/include/net/netfilter/nf_flow_table.h b/include/net/netfilter/nf_flow_table.h
+index 3a077958..161f71ca 100644
 --- a/include/net/netfilter/nf_flow_table.h
 +++ b/include/net/netfilter/nf_flow_table.h
 @@ -1,7 +1,12 @@
@@ -124,9 +109,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 +	MODULE_ALIAS("nf-flowtable-" __stringify(family))
 +
  #endif /* _FLOW_OFFLOAD_H */
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index f0c9f7eb..4e4ef55c 100644
 --- a/net/netfilter/Kconfig
 +++ b/net/netfilter/Kconfig
-@@ -667,6 +667,13 @@ endif # NF_TABLES_NETDEV
+@@ -666,6 +666,13 @@ endif # NF_TABLES_NETDEV
  
  endif # NF_TABLES
  
@@ -140,9 +127,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  config NETFILTER_XTABLES
  	tristate "Netfilter Xtables support (required for ip_tables)"
  	default m if NETFILTER_ADVANCED=n
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 9eafe780..c0a6224a 100644
 --- a/net/netfilter/Makefile
 +++ b/net/netfilter/Makefile
-@@ -110,6 +110,9 @@ obj-$(CONFIG_NFT_FIB_NETDEV)	+= nft_fib_
+@@ -110,6 +110,9 @@ obj-$(CONFIG_NFT_FIB_NETDEV)	+= nft_fib_netdev.o
  obj-$(CONFIG_NFT_DUP_NETDEV)	+= nft_dup_netdev.o
  obj-$(CONFIG_NFT_FWD_NETDEV)	+= nft_fwd_netdev.o
  
@@ -152,6 +141,9 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  # generic X tables 
  obj-$(CONFIG_NETFILTER_XTABLES) += x_tables.o xt_tcpudp.o
  
+diff --git a/net/netfilter/nf_flow_table.c b/net/netfilter/nf_flow_table.c
+new file mode 100644
+index 00000000..2f5099cb
 --- /dev/null
 +++ b/net/netfilter/nf_flow_table.c
 @@ -0,0 +1,429 @@

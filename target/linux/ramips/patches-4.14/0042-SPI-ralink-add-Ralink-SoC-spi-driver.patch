@@ -1,19 +1,5 @@
-From 683af4ebb91a1600df1946ac4769d916b8a1be65 Mon Sep 17 00:00:00 2001
-From: John Crispin <blogic@openwrt.org>
-Date: Sun, 27 Jul 2014 11:15:12 +0100
-Subject: [PATCH 42/53] SPI: ralink: add Ralink SoC spi driver
-
-Add the driver needed to make SPI work on Ralink SoC.
-
-Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
-Acked-by: John Crispin <blogic@openwrt.org>
----
- drivers/spi/Kconfig      |    6 +
- drivers/spi/Makefile     |    1 +
- drivers/spi/spi-rt2880.c |  530 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 537 insertions(+)
- create mode 100644 drivers/spi/spi-rt2880.c
-
+diff --git a/drivers/spi/Kconfig b/drivers/spi/Kconfig
+index 4b6a1629..243263bd 100644
 --- a/drivers/spi/Kconfig
 +++ b/drivers/spi/Kconfig
 @@ -563,6 +563,12 @@ config SPI_QUP
@@ -29,6 +15,8 @@ Acked-by: John Crispin <blogic@openwrt.org>
  config SPI_S3C24XX
  	tristate "Samsung S3C24XX series SPI"
  	depends on ARCH_S3C24XX
+diff --git a/drivers/spi/Makefile b/drivers/spi/Makefile
+index 8e0cda73..6a9bcc08 100644
 --- a/drivers/spi/Makefile
 +++ b/drivers/spi/Makefile
 @@ -81,6 +81,7 @@ obj-$(CONFIG_SPI_QUP)			+= spi-qup.o
@@ -39,6 +27,9 @@ Acked-by: John Crispin <blogic@openwrt.org>
  obj-$(CONFIG_SPI_S3C24XX)		+= spi-s3c24xx-hw.o
  spi-s3c24xx-hw-y			:= spi-s3c24xx.o
  spi-s3c24xx-hw-$(CONFIG_SPI_S3C24XX_FIQ) += spi-s3c24xx-fiq.o
+diff --git a/drivers/spi/spi-rt2880.c b/drivers/spi/spi-rt2880.c
+new file mode 100644
+index 00000000..c286c94f
 --- /dev/null
 +++ b/drivers/spi/spi-rt2880.c
 @@ -0,0 +1,530 @@

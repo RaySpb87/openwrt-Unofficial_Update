@@ -1,33 +1,8 @@
-From 12acd136913ccdf394eeb2bc8686ff5505368119 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
-Date: Thu, 12 Oct 2017 10:21:26 +0200
-Subject: [PATCH] net: bgmac: enable master mode for BCM54210E and B50212E PHYs
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-There are 4 very similar PHYs:
-0x600d84a1: BCM54210E (rev B0)
-0x600d84a2: BCM54210E (rev B1)
-0x600d84a5: B50212E (rev B0)
-0x600d84a6: B50212E (rev B1)
-that need setting master mode manually. It's because they run in slave
-mode by default with Automatic Slave/Master configuration disabled which
-can lead to unreliable connection with massive ping loss.
-
-So far it was reported for a board with BCM47189 SoC and B50212E B1 PHY
-connected to the bgmac supported ethernet device. Telling PHY driver to
-setup PHY properly solves this issue.
-
-Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/broadcom/bgmac-bcma.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
-
+diff --git a/drivers/net/ethernet/broadcom/bgmac-bcma.c b/drivers/net/ethernet/broadcom/bgmac-bcma.c
+index 54642527..b880c0b9 100644
 --- a/drivers/net/ethernet/broadcom/bgmac-bcma.c
 +++ b/drivers/net/ethernet/broadcom/bgmac-bcma.c
-@@ -184,13 +184,19 @@ static int bgmac_probe(struct bcma_devic
+@@ -184,13 +184,19 @@ static int bgmac_probe(struct bcma_device *core)
  
  	if (!bgmac_is_bcm4707_family(core) &&
  	    !(ci->id == BCMA_CHIP_ID_BCM53573 && core->core_unit == 1)) {

@@ -1,23 +1,5 @@
-From: Jonas Gorski <jogo@openwrt.org>
-Subject: ipv6: allow rejecting with "source address failed policy"
-
-RFC6204 L-14 requires rejecting traffic from invalid addresses with
-ICMPv6 Destination Unreachable, Code 5 (Source address failed ingress/
-egress policy) on the LAN side, so add an appropriate rule for that.
-
-Signed-off-by: Jonas Gorski <jogo@openwrt.org>
----
- include/net/netns/ipv6.h       |  1 +
- include/uapi/linux/fib_rules.h |  4 +++
- include/uapi/linux/rtnetlink.h |  1 +
- net/ipv4/fib_semantics.c       |  4 +++
- net/ipv4/fib_trie.c            |  1 +
- net/ipv4/ipmr.c                |  1 +
- net/ipv6/fib6_rules.c          |  4 +++
- net/ipv6/ip6mr.c               |  2 ++
- net/ipv6/route.c               | 58 +++++++++++++++++++++++++++++++++++++++++-
- 9 files changed, 75 insertions(+), 1 deletion(-)
-
+diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
+index c004d051..aba086d6 100644
 --- a/include/net/netns/ipv6.h
 +++ b/include/net/netns/ipv6.h
 @@ -69,6 +69,7 @@ struct netns_ipv6 {
@@ -28,6 +10,8 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  	struct rt6_info         *ip6_blk_hole_entry;
  	struct fib6_table       *fib6_local_tbl;
  	struct fib_rules_ops    *fib6_rules_ops;
+diff --git a/include/uapi/linux/fib_rules.h b/include/uapi/linux/fib_rules.h
+index 2b642bf9..f3ff86a9 100644
 --- a/include/uapi/linux/fib_rules.h
 +++ b/include/uapi/linux/fib_rules.h
 @@ -73,6 +73,10 @@ enum {
@@ -41,6 +25,8 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  	__FR_ACT_MAX,
  };
  
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index a6d37c2e..6d7f4de8 100644
 --- a/include/uapi/linux/rtnetlink.h
 +++ b/include/uapi/linux/rtnetlink.h
 @@ -221,6 +221,7 @@ enum {
@@ -51,9 +37,11 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  	__RTN_MAX
  };
  
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index bc233fdf..87a7f7fc 100644
 --- a/net/ipv4/fib_semantics.c
 +++ b/net/ipv4/fib_semantics.c
-@@ -139,6 +139,10 @@ const struct fib_prop fib_props[RTN_MAX
+@@ -139,6 +139,10 @@ const struct fib_prop fib_props[RTN_MAX + 1] = {
  		.error	= -EINVAL,
  		.scope	= RT_SCOPE_NOWHERE,
  	},
@@ -64,9 +52,11 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  };
  
  static void rt_fibinfo_free(struct rtable __rcu **rtp)
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 0c8fcc05..5eedc07f 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
-@@ -2472,6 +2472,7 @@ static const char *const rtn_type_names[
+@@ -2472,6 +2472,7 @@ static const char *const rtn_type_names[__RTN_MAX] = {
  	[RTN_THROW] = "THROW",
  	[RTN_NAT] = "NAT",
  	[RTN_XRESOLVE] = "XRESOLVE",
@@ -74,9 +64,11 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  };
  
  static inline const char *rtn_type(char *buf, size_t len, unsigned int t)
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 0a68020d..f83ac426 100644
 --- a/net/ipv4/ipmr.c
 +++ b/net/ipv4/ipmr.c
-@@ -163,6 +163,7 @@ static int ipmr_rule_action(struct fib_r
+@@ -163,6 +163,7 @@ static int ipmr_rule_action(struct fib_rule *rule, struct flowi *flp,
  	case FR_ACT_UNREACHABLE:
  		return -ENETUNREACH;
  	case FR_ACT_PROHIBIT:
@@ -84,9 +76,11 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  		return -EACCES;
  	case FR_ACT_BLACKHOLE:
  	default:
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index b240f24a..d6b18aee 100644
 --- a/net/ipv6/fib6_rules.c
 +++ b/net/ipv6/fib6_rules.c
-@@ -121,6 +121,10 @@ static int fib6_rule_action(struct fib_r
+@@ -121,6 +121,10 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
  		err = -EACCES;
  		rt = net->ipv6.ip6_prohibit_entry;
  		goto discard_pkt;
@@ -97,9 +91,11 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  	}
  
  	tb_id = fib_rule_get_table(rule, arg);
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 40dfb9bd..62bb089d 100644
 --- a/net/ipv6/ip6mr.c
 +++ b/net/ipv6/ip6mr.c
-@@ -170,6 +170,8 @@ static int ip6mr_rule_action(struct fib_
+@@ -170,6 +170,8 @@ static int ip6mr_rule_action(struct fib_rule *rule, struct flowi *flp,
  		return -ENETUNREACH;
  	case FR_ACT_PROHIBIT:
  		return -EACCES;
@@ -108,9 +104,11 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  	case FR_ACT_BLACKHOLE:
  	default:
  		return -EINVAL;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 79b67f80..3f024112 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -91,6 +91,8 @@ static int		ip6_pkt_discard(struct sk_bu
+@@ -91,6 +91,8 @@ static int		ip6_pkt_discard(struct sk_buff *skb);
  static int		ip6_pkt_discard_out(struct net *net, struct sock *sk, struct sk_buff *skb);
  static int		ip6_pkt_prohibit(struct sk_buff *skb);
  static int		ip6_pkt_prohibit_out(struct net *net, struct sock *sk, struct sk_buff *skb);
@@ -119,7 +117,7 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  static void		ip6_link_failure(struct sk_buff *skb);
  static void		ip6_rt_update_pmtu(struct dst_entry *dst, struct sock *sk,
  					   struct sk_buff *skb, u32 mtu,
-@@ -323,6 +325,21 @@ static const struct rt6_info ip6_prohibi
+@@ -323,6 +325,21 @@ static const struct rt6_info ip6_prohibit_entry_template = {
  	.rt6i_ref	= ATOMIC_INIT(1),
  };
  
@@ -141,7 +139,7 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  static const struct rt6_info ip6_blk_hole_entry_template = {
  	.dst = {
  		.__refcnt	= ATOMIC_INIT(1),
-@@ -2056,6 +2073,11 @@ static struct rt6_info *ip6_route_info_c
+@@ -2056,6 +2073,11 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg,
  			rt->dst.output = ip6_pkt_prohibit_out;
  			rt->dst.input = ip6_pkt_prohibit;
  			break;
@@ -153,7 +151,7 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  		case RTN_THROW:
  		case RTN_UNREACHABLE:
  		default:
-@@ -2781,6 +2803,17 @@ static int ip6_pkt_prohibit_out(struct n
+@@ -2781,6 +2803,17 @@ static int ip6_pkt_prohibit_out(struct net *net, struct sock *sk, struct sk_buff
  	return ip6_pkt_drop(skb, ICMPV6_ADM_PROHIBITED, IPSTATS_MIB_OUTNOROUTES);
  }
  
@@ -171,7 +169,7 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  /*
   *	Allocate a dst for local (unicast / anycast) address.
   */
-@@ -3017,7 +3050,8 @@ static int rtm_to_fib6_config(struct sk_
+@@ -3017,7 +3050,8 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
  	if (rtm->rtm_type == RTN_UNREACHABLE ||
  	    rtm->rtm_type == RTN_BLACKHOLE ||
  	    rtm->rtm_type == RTN_PROHIBIT ||
@@ -181,7 +179,7 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  		cfg->fc_flags |= RTF_REJECT;
  
  	if (rtm->rtm_type == RTN_LOCAL)
-@@ -3543,6 +3577,9 @@ static int rt6_fill_node(struct net *net
+@@ -3543,6 +3577,9 @@ static int rt6_fill_node(struct net *net,
  		case -EACCES:
  			rtm->rtm_type = RTN_PROHIBIT;
  			break;
@@ -191,7 +189,7 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  		case -EAGAIN:
  			rtm->rtm_type = RTN_THROW;
  			break;
-@@ -3861,6 +3898,8 @@ static int ip6_route_dev_notify(struct n
+@@ -3861,6 +3898,8 @@ static int ip6_route_dev_notify(struct notifier_block *this,
  #ifdef CONFIG_IPV6_MULTIPLE_TABLES
  		net->ipv6.ip6_prohibit_entry->dst.dev = dev;
  		net->ipv6.ip6_prohibit_entry->rt6i_idev = in6_dev_get(dev);
@@ -200,7 +198,7 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  		net->ipv6.ip6_blk_hole_entry->dst.dev = dev;
  		net->ipv6.ip6_blk_hole_entry->rt6i_idev = in6_dev_get(dev);
  #endif
-@@ -3872,6 +3911,7 @@ static int ip6_route_dev_notify(struct n
+@@ -3872,6 +3911,7 @@ static int ip6_route_dev_notify(struct notifier_block *this,
  		in6_dev_put_clear(&net->ipv6.ip6_null_entry->rt6i_idev);
  #ifdef CONFIG_IPV6_MULTIPLE_TABLES
  		in6_dev_put_clear(&net->ipv6.ip6_prohibit_entry->rt6i_idev);
@@ -208,7 +206,7 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  		in6_dev_put_clear(&net->ipv6.ip6_blk_hole_entry->rt6i_idev);
  #endif
  	}
-@@ -4088,6 +4128,17 @@ static int __net_init ip6_route_net_init
+@@ -4088,6 +4128,17 @@ static int __net_init ip6_route_net_init(struct net *net)
  	net->ipv6.ip6_blk_hole_entry->dst.ops = &net->ipv6.ip6_dst_ops;
  	dst_init_metrics(&net->ipv6.ip6_blk_hole_entry->dst,
  			 ip6_template_metrics, true);
@@ -226,7 +224,7 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  #endif
  
  	net->ipv6.sysctl.flush_delay = 0;
-@@ -4106,6 +4157,8 @@ out:
+@@ -4106,6 +4157,8 @@ static int __net_init ip6_route_net_init(struct net *net)
  	return ret;
  
  #ifdef CONFIG_IPV6_MULTIPLE_TABLES
@@ -235,7 +233,7 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  out_ip6_prohibit_entry:
  	kfree(net->ipv6.ip6_prohibit_entry);
  out_ip6_null_entry:
-@@ -4123,6 +4176,7 @@ static void __net_exit ip6_route_net_exi
+@@ -4123,6 +4176,7 @@ static void __net_exit ip6_route_net_exit(struct net *net)
  #ifdef CONFIG_IPV6_MULTIPLE_TABLES
  	kfree(net->ipv6.ip6_prohibit_entry);
  	kfree(net->ipv6.ip6_blk_hole_entry);
@@ -243,7 +241,7 @@ Signed-off-by: Jonas Gorski <jogo@openwrt.org>
  #endif
  	dst_entries_destroy(&net->ipv6.ip6_dst_ops);
  }
-@@ -4196,6 +4250,9 @@ void __init ip6_route_init_special_entri
+@@ -4196,6 +4250,9 @@ void __init ip6_route_init_special_entries(void)
  	init_net.ipv6.ip6_prohibit_entry->rt6i_idev = in6_dev_get(init_net.loopback_dev);
  	init_net.ipv6.ip6_blk_hole_entry->dst.dev = init_net.loopback_dev;
  	init_net.ipv6.ip6_blk_hole_entry->rt6i_idev = in6_dev_get(init_net.loopback_dev);

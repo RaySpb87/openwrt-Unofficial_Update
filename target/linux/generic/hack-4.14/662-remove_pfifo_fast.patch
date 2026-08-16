@@ -1,16 +1,8 @@
-From b531d492d5ef1cf9dba0f4888eb5fd8624a6d762 Mon Sep 17 00:00:00 2001
-From: Felix Fietkau <nbd@nbd.name>
-Date: Fri, 7 Jul 2017 17:23:42 +0200
-Subject: net: sched: switch default qdisc from pfifo_fast to fq_codel and remove pfifo_fast
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- net/sched/sch_generic.c | 140 ------------------------------------------------
- 1 file changed, 140 deletions(-)
-
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 0199ab73..a6d68512 100644
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c
-@@ -454,146 +454,6 @@ struct Qdisc_ops noqueue_qdisc_ops __rea
+@@ -454,146 +454,6 @@ struct Qdisc_ops noqueue_qdisc_ops __read_mostly = {
  	.owner		=	THIS_MODULE,
  };
  

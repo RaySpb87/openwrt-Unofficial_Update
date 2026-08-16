@@ -1,16 +1,5 @@
-From 4267880319bc1a2270d352e0ded6d6386242a7ef Mon Sep 17 00:00:00 2001
-From: John Crispin <blogic@openwrt.org>
-Date: Tue, 12 Aug 2014 20:49:27 +0200
-Subject: [PATCH 24/53] GPIO: add named gpio exports
-
-Signed-off-by: John Crispin <blogic@openwrt.org>
----
- drivers/gpio/gpiolib-of.c     |   68 +++++++++++++++++++++++++++++++++++++++++
- drivers/gpio/gpiolib-sysfs.c  |   10 +++++-
- include/asm-generic/gpio.h    |    6 ++++
- include/linux/gpio/consumer.h |    8 +++++
- 4 files changed, 91 insertions(+), 1 deletion(-)
-
+diff --git a/drivers/gpio/gpiolib-of.c b/drivers/gpio/gpiolib-of.c
+index cc1efdbd..050fb3b9 100644
 --- a/drivers/gpio/gpiolib-of.c
 +++ b/drivers/gpio/gpiolib-of.c
 @@ -23,6 +23,8 @@
@@ -22,7 +11,7 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  
  #include "gpiolib.h"
  
-@@ -513,3 +515,68 @@ void of_gpiochip_remove(struct gpio_chip
+@@ -515,3 +517,68 @@ void of_gpiochip_remove(struct gpio_chip *chip)
  	gpiochip_remove_pin_ranges(chip);
  	of_node_put(chip->of_node);
  }
@@ -91,6 +80,8 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
 +};
 +
 +module_platform_driver(gpio_export_driver);
+diff --git a/drivers/gpio/gpiolib-sysfs.c b/drivers/gpio/gpiolib-sysfs.c
+index 3f454eaf..5cc9bfb1 100644
 --- a/drivers/gpio/gpiolib-sysfs.c
 +++ b/drivers/gpio/gpiolib-sysfs.c
 @@ -553,7 +553,7 @@ static struct class gpio_class = {
@@ -102,7 +93,7 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  {
  	struct gpio_chip	*chip;
  	struct gpio_device	*gdev;
-@@ -615,6 +615,8 @@ int gpiod_export(struct gpio_desc *desc,
+@@ -615,6 +615,8 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
  	offset = gpio_chip_hwgpio(desc);
  	if (chip->names && chip->names[offset])
  		ioname = chip->names[offset];
@@ -111,7 +102,7 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  
  	dev = device_create_with_groups(&gpio_class, &gdev->dev,
  					MKDEV(0, 0), data, gpio_groups,
-@@ -636,6 +638,12 @@ err_unlock:
+@@ -636,6 +638,12 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
  	gpiod_dbg(desc, "%s: status %d\n", __func__, status);
  	return status;
  }
@@ -124,9 +115,11 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  EXPORT_SYMBOL_GPL(gpiod_export);
  
  static int match_export(struct device *dev, const void *desc)
+diff --git a/include/asm-generic/gpio.h b/include/asm-generic/gpio.h
+index 19eadac4..bf0ac4d6 100644
 --- a/include/asm-generic/gpio.h
 +++ b/include/asm-generic/gpio.h
-@@ -127,6 +127,12 @@ static inline int gpio_export(unsigned g
+@@ -127,6 +127,12 @@ static inline int gpio_export(unsigned gpio, bool direction_may_change)
  	return gpiod_export(gpio_to_desc(gpio), direction_may_change);
  }
  
@@ -139,9 +132,11 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  static inline int gpio_export_link(struct device *dev, const char *name,
  				   unsigned gpio)
  {
+diff --git a/include/linux/gpio/consumer.h b/include/linux/gpio/consumer.h
+index 79ad4f8b..74728690 100644
 --- a/include/linux/gpio/consumer.h
 +++ b/include/linux/gpio/consumer.h
-@@ -451,6 +451,7 @@ struct gpio_desc *devm_fwnode_get_gpiod_
+@@ -451,6 +451,7 @@ struct gpio_desc *devm_fwnode_get_gpiod_from_child(struct device *dev,
  
  #if IS_ENABLED(CONFIG_GPIOLIB) && IS_ENABLED(CONFIG_GPIO_SYSFS)
  
@@ -149,7 +144,7 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  int gpiod_export(struct gpio_desc *desc, bool direction_may_change);
  int gpiod_export_link(struct device *dev, const char *name,
  		      struct gpio_desc *desc);
-@@ -458,6 +459,13 @@ void gpiod_unexport(struct gpio_desc *de
+@@ -458,6 +459,13 @@ void gpiod_unexport(struct gpio_desc *desc);
  
  #else  /* CONFIG_GPIOLIB && CONFIG_GPIO_SYSFS */
  

@@ -1,17 +1,5 @@
-From 811d9e2268a62b830cfe93cd8bc929afcb8b198b Mon Sep 17 00:00:00 2001
-From: Felix Fietkau <nbd@nbd.name>
-Date: Sat, 15 Jul 2017 21:12:38 +0200
-Subject: kernel: move regmap bloat out of the kernel image if it is only being used in modules
-
-lede-commit: 96f39119815028073583e4fca3a9c5fe9141e998
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- drivers/base/regmap/Kconfig  | 15 ++++++++++-----
- drivers/base/regmap/Makefile | 12 ++++++++----
- drivers/base/regmap/regmap.c |  3 +++
- include/linux/regmap.h       |  2 +-
- 4 files changed, 22 insertions(+), 10 deletions(-)
-
+diff --git a/drivers/base/regmap/Kconfig b/drivers/base/regmap/Kconfig
+index 0368fd7b..4f98ff7d 100644
 --- a/drivers/base/regmap/Kconfig
 +++ b/drivers/base/regmap/Kconfig
 @@ -4,9 +4,8 @@
@@ -55,6 +43,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  config REGMAP_IRQ
 +	select REGMAP
  	bool
+diff --git a/drivers/base/regmap/Makefile b/drivers/base/regmap/Makefile
+index 0d298c44..221364a3 100644
 --- a/drivers/base/regmap/Makefile
 +++ b/drivers/base/regmap/Makefile
 @@ -2,10 +2,14 @@
@@ -76,6 +66,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  obj-$(CONFIG_REGMAP_AC97) += regmap-ac97.o
  obj-$(CONFIG_REGMAP_I2C) += regmap-i2c.o
  obj-$(CONFIG_REGMAP_SPI) += regmap-spi.o
+diff --git a/drivers/base/regmap/regmap.c b/drivers/base/regmap/regmap.c
+index a28e9e21..a82e71b6 100644
 --- a/drivers/base/regmap/regmap.c
 +++ b/drivers/base/regmap/regmap.c
 @@ -13,6 +13,7 @@
@@ -92,6 +84,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  postcore_initcall(regmap_initcall);
 +
 +MODULE_LICENSE("GPL");
+diff --git a/include/linux/regmap.h b/include/linux/regmap.h
+index 978abfba..6a004de1 100644
 --- a/include/linux/regmap.h
 +++ b/include/linux/regmap.h
 @@ -139,7 +139,7 @@ struct reg_sequence {

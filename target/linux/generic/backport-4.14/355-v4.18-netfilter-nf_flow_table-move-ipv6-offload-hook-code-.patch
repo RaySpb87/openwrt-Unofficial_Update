@@ -1,13 +1,5 @@
-From: Felix Fietkau <nbd@nbd.name>
-Date: Sat, 17 Feb 2018 11:55:51 +0100
-Subject: [PATCH] netfilter: nf_flow_table: move ipv6 offload hook code to
- nf_flow_table
-
-Useful as preparation for adding iptables support for offload
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
-
+diff --git a/net/ipv6/netfilter/nf_flow_table_ipv6.c b/net/ipv6/netfilter/nf_flow_table_ipv6.c
+index f530efd3..f1804ce8 100644
 --- a/net/ipv6/netfilter/nf_flow_table_ipv6.c
 +++ b/net/ipv6/netfilter/nf_flow_table_ipv6.c
 @@ -3,240 +3,8 @@
@@ -251,6 +243,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  static struct nf_flowtable_type flowtable_ipv6 = {
  	.family		= NFPROTO_IPV6,
+diff --git a/net/netfilter/nf_flow_table_ip.c b/net/netfilter/nf_flow_table_ip.c
+index 79976c25..fc6f00c4 100644
 --- a/net/netfilter/nf_flow_table_ip.c
 +++ b/net/netfilter/nf_flow_table_ip.c
 @@ -4,8 +4,11 @@
@@ -265,7 +259,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  #include <net/neighbour.h>
  #include <net/netfilter/nf_flow_table.h>
  /* For layer 4 checksum field offset. */
-@@ -241,3 +244,215 @@ nf_flow_offload_ip_hook(void *priv, stru
+@@ -241,3 +244,215 @@ nf_flow_offload_ip_hook(void *priv, struct sk_buff *skb,
  	return NF_STOLEN;
  }
  EXPORT_SYMBOL_GPL(nf_flow_offload_ip_hook);

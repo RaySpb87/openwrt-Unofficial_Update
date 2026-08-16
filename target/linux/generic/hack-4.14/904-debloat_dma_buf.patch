@@ -1,16 +1,5 @@
-From e3692cb2fcd5ba1244512a0f43b8118f65f1c375 Mon Sep 17 00:00:00 2001
-From: Felix Fietkau <nbd@nbd.name>
-Date: Sat, 8 Jul 2017 08:20:43 +0200
-Subject: debloat: dmabuf
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- drivers/base/Kconfig      |  2 +-
- drivers/dma-buf/Makefile  | 10 +++++++---
- drivers/dma-buf/dma-buf.c |  4 +++-
- kernel/sched/core.c       |  1 +
- 4 files changed, 12 insertions(+), 5 deletions(-)
-
+diff --git a/drivers/base/Kconfig b/drivers/base/Kconfig
+index 49fd50fc..9a57ad0a 100644
 --- a/drivers/base/Kconfig
 +++ b/drivers/base/Kconfig
 @@ -246,7 +246,7 @@ config SOC_BUS
@@ -22,6 +11,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	default n
  	select ANON_INODES
  	select IRQ_WORK
+diff --git a/drivers/dma-buf/Makefile b/drivers/dma-buf/Makefile
+index c33bf886..723fa159 100644
 --- a/drivers/dma-buf/Makefile
 +++ b/drivers/dma-buf/Makefile
 @@ -1,3 +1,7 @@
@@ -35,6 +26,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
 +dma-buf-objs-$(CONFIG_SW_SYNC)		+= sw_sync.o sync_debug.o
 +
 +dma-shared-buffer-objs :=  $(dma-buf-objs-y)
+diff --git a/drivers/dma-buf/dma-buf.c b/drivers/dma-buf/dma-buf.c
+index 1195a3d2..48971aae 100644
 --- a/drivers/dma-buf/dma-buf.c
 +++ b/drivers/dma-buf/dma-buf.c
 @@ -34,6 +34,7 @@
@@ -52,9 +45,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
 -__exitcall(dma_buf_deinit);
 +module_exit(dma_buf_deinit);
 +MODULE_LICENSE("GPL");
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index e3bda201..ce99f8ae 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -2168,6 +2168,7 @@ int wake_up_state(struct task_struct *p,
+@@ -2171,6 +2171,7 @@ int wake_up_state(struct task_struct *p, unsigned int state)
  {
  	return try_to_wake_up(p, state, 0);
  }

@@ -1,24 +1,5 @@
-From 531ef5ebea96394ddb7f554d4d88e017dde30a59 Mon Sep 17 00:00:00 2001
-From: Amelie Delaunay <amelie.delaunay@st.com>
-Date: Tue, 13 Feb 2018 09:28:12 +0100
-Subject: [PATCH] usb: dwc2: add support for host mode external vbus supply
-
-This patch adds a way to enable an external vbus supply in host mode,
-when dwc2 drvvbus signal is not used.
-
-This patch is very similar to the one done in U-Boot dwc2 driver [1]. It
-also adds dynamic vbus supply management depending on the role and state
-of the core.
-
-[1] https://lists.denx.de/pipermail/u-boot/2017-March/283434.html
-
-Signed-off-by: Amelie Delaunay <amelie.delaunay@st.com>
-Signed-off-by: Felipe Balbi <felipe.balbi@linux.intel.com>
----
- drivers/usb/dwc2/core.h |  2 ++
- drivers/usb/dwc2/hcd.c  | 26 ++++++++++++++++++++++++++
- 2 files changed, 28 insertions(+)
-
+diff --git a/drivers/usb/dwc2/core.h b/drivers/usb/dwc2/core.h
+index 09fd97a8..b6827622 100644
 --- a/drivers/usb/dwc2/core.h
 +++ b/drivers/usb/dwc2/core.h
 @@ -779,6 +779,7 @@ struct dwc2_hregs_backup {
@@ -37,9 +18,11 @@ Signed-off-by: Felipe Balbi <felipe.balbi@linux.intel.com>
  	u32 phyif;
  
  	spinlock_t lock;
+diff --git a/drivers/usb/dwc2/hcd.c b/drivers/usb/dwc2/hcd.c
+index 6d206037..55aca22a 100644
 --- a/drivers/usb/dwc2/hcd.c
 +++ b/drivers/usb/dwc2/hcd.c
-@@ -359,6 +359,23 @@ static void dwc2_gusbcfg_init(struct dwc
+@@ -359,6 +359,23 @@ static void dwc2_gusbcfg_init(struct dwc2_hsotg *hsotg)
  	dwc2_writel(usbcfg, hsotg->regs + GUSBCFG);
  }
  
@@ -63,7 +46,7 @@ Signed-off-by: Felipe Balbi <felipe.balbi@linux.intel.com>
  /**
   * dwc2_enable_host_interrupts() - Enables the Host mode interrupts
   *
-@@ -3347,6 +3364,7 @@ static void dwc2_conn_id_status_change(s
+@@ -3347,6 +3364,7 @@ static void dwc2_conn_id_status_change(struct work_struct *work)
  
  	/* B-Device connector (Device Mode) */
  	if (gotgctl & GOTGCTL_CONID_B) {
@@ -71,7 +54,7 @@ Signed-off-by: Felipe Balbi <felipe.balbi@linux.intel.com>
  		/* Wait for switch to device mode */
  		dev_dbg(hsotg->dev, "connId B\n");
  		if (hsotg->bus_suspended) {
-@@ -4456,6 +4474,9 @@ static int _dwc2_hcd_start(struct usb_hc
+@@ -4456,6 +4474,9 @@ static int _dwc2_hcd_start(struct usb_hcd *hcd)
  	}
  
  	spin_unlock_irqrestore(&hsotg->lock, flags);
@@ -81,7 +64,7 @@ Signed-off-by: Felipe Balbi <felipe.balbi@linux.intel.com>
  	return 0;
  }
  
-@@ -4483,6 +4504,8 @@ static void _dwc2_hcd_stop(struct usb_hc
+@@ -4483,6 +4504,8 @@ static void _dwc2_hcd_stop(struct usb_hcd *hcd)
  	clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
  	spin_unlock_irqrestore(&hsotg->lock, flags);
  
@@ -90,7 +73,7 @@ Signed-off-by: Felipe Balbi <felipe.balbi@linux.intel.com>
  	usleep_range(1000, 3000);
  }
  
-@@ -4519,6 +4542,7 @@ static int _dwc2_hcd_suspend(struct usb_
+@@ -4519,6 +4542,7 @@ static int _dwc2_hcd_suspend(struct usb_hcd *hcd)
  		hprt0 |= HPRT0_SUSP;
  		hprt0 &= ~HPRT0_PWR;
  		dwc2_writel(hprt0, hsotg->regs + HPRT0);
@@ -98,7 +81,7 @@ Signed-off-by: Felipe Balbi <felipe.balbi@linux.intel.com>
  	}
  
  	/* Enter hibernation */
-@@ -4599,6 +4623,8 @@ static int _dwc2_hcd_resume(struct usb_h
+@@ -4599,6 +4623,8 @@ static int _dwc2_hcd_resume(struct usb_hcd *hcd)
  		spin_unlock_irqrestore(&hsotg->lock, flags);
  		dwc2_port_resume(hsotg);
  	} else {

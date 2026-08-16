@@ -1,11 +1,28 @@
-From: Felix Fietkau <nbd@nbd.name>
-Date: Tue, 20 Feb 2018 15:56:02 +0100
-Subject: [PATCH] netfilter: add xt_OFFLOAD target
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- create mode 100644 net/netfilter/xt_OFFLOAD.c
-
+diff --git a/include/uapi/linux/netfilter/xt_FLOWOFFLOAD.h b/include/uapi/linux/netfilter/xt_FLOWOFFLOAD.h
+new file mode 100644
+index 00000000..5841bbe0
+--- /dev/null
++++ b/include/uapi/linux/netfilter/xt_FLOWOFFLOAD.h
+@@ -0,0 +1,17 @@
++/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
++#ifndef _XT_FLOWOFFLOAD_H
++#define _XT_FLOWOFFLOAD_H
++
++#include <linux/types.h>
++
++enum {
++	XT_FLOWOFFLOAD_HW	= 1 << 0,
++
++	XT_FLOWOFFLOAD_MASK	= XT_FLOWOFFLOAD_HW
++};
++
++struct xt_flowoffload_target_info {
++	__u32 flags;
++};
++
++#endif /* _XT_FLOWOFFLOAD_H */
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+index 47458fe2..042ee677 100644
 --- a/net/ipv4/netfilter/Kconfig
 +++ b/net/ipv4/netfilter/Kconfig
 @@ -76,8 +76,6 @@ config NF_TABLES_ARP
@@ -26,6 +43,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  config NF_DUP_IPV4
  	tristate "Netfilter IPv4 packet duplication to alternate destination"
  	depends on !NF_CONNTRACK || NF_CONNTRACK
+diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
+index 7ec347b8..f9130c58 100644
 --- a/net/ipv6/netfilter/Kconfig
 +++ b/net/ipv6/netfilter/Kconfig
 @@ -97,7 +97,6 @@ config NFT_FIB_IPV6
@@ -45,9 +64,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  config NF_DUP_IPV6
  	tristate "Netfilter IPv6 packet duplication to alternate destination"
  	depends on !NF_CONNTRACK || NF_CONNTRACK
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 74fd76a7..bba06e28 100644
 --- a/net/netfilter/Kconfig
 +++ b/net/netfilter/Kconfig
-@@ -671,8 +671,6 @@ config NFT_FIB_NETDEV
+@@ -670,8 +670,6 @@ config NFT_FIB_NETDEV
  
  endif # NF_TABLES_NETDEV
  
@@ -56,7 +77,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  config NF_FLOW_TABLE_INET
  	tristate "Netfilter flow table mixed IPv4/IPv6 module"
  	depends on NF_FLOW_TABLE
-@@ -681,11 +679,12 @@ config NF_FLOW_TABLE_INET
+@@ -680,11 +678,12 @@ config NF_FLOW_TABLE_INET
  
  	  To compile it as a module, choose M here.
  
@@ -70,7 +91,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	help
  	  This option adds the flow table core infrastructure.
  
-@@ -974,6 +973,15 @@ config NETFILTER_XT_TARGET_NOTRACK
+@@ -973,6 +972,15 @@ config NETFILTER_XT_TARGET_NOTRACK
  	depends on NETFILTER_ADVANCED
  	select NETFILTER_XT_TARGET_CT
  
@@ -86,9 +107,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  config NETFILTER_XT_TARGET_RATEEST
  	tristate '"RATEEST" target support'
  	depends on NETFILTER_ADVANCED
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index e615069f..492896e0 100644
 --- a/net/netfilter/Makefile
 +++ b/net/netfilter/Makefile
-@@ -134,6 +134,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_CLASSIF
+@@ -134,6 +134,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_CLASSIFY) += xt_CLASSIFY.o
  obj-$(CONFIG_NETFILTER_XT_TARGET_CONNSECMARK) += xt_CONNSECMARK.o
  obj-$(CONFIG_NETFILTER_XT_TARGET_CT) += xt_CT.o
  obj-$(CONFIG_NETFILTER_XT_TARGET_DSCP) += xt_DSCP.o
@@ -96,6 +119,21 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  obj-$(CONFIG_NETFILTER_XT_TARGET_HL) += xt_HL.o
  obj-$(CONFIG_NETFILTER_XT_TARGET_HMARK) += xt_HMARK.o
  obj-$(CONFIG_NETFILTER_XT_TARGET_LED) += xt_LED.o
+diff --git a/net/netfilter/nf_flow_table_core.c b/net/netfilter/nf_flow_table_core.c
+index cfc659c5..901092c1 100644
+--- a/net/netfilter/nf_flow_table_core.c
++++ b/net/netfilter/nf_flow_table_core.c
+@@ -6,7 +6,6 @@
+ #include <linux/netdevice.h>
+ #include <net/ip.h>
+ #include <net/ip6_route.h>
+-#include <net/netfilter/nf_tables.h>
+ #include <net/netfilter/nf_flow_table.h>
+ #include <net/netfilter/nf_conntrack.h>
+ #include <net/netfilter/nf_conntrack_core.h>
+diff --git a/net/netfilter/xt_FLOWOFFLOAD.c b/net/netfilter/xt_FLOWOFFLOAD.c
+new file mode 100644
+index 00000000..2dbf50b5
 --- /dev/null
 +++ b/net/netfilter/xt_FLOWOFFLOAD.c
 @@ -0,0 +1,422 @@
@@ -521,33 +559,3 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
 +MODULE_LICENSE("GPL");
 +module_init(xt_flowoffload_tg_init);
 +module_exit(xt_flowoffload_tg_exit);
---- a/net/netfilter/nf_flow_table_core.c
-+++ b/net/netfilter/nf_flow_table_core.c
-@@ -6,7 +6,6 @@
- #include <linux/netdevice.h>
- #include <net/ip.h>
- #include <net/ip6_route.h>
--#include <net/netfilter/nf_tables.h>
- #include <net/netfilter/nf_flow_table.h>
- #include <net/netfilter/nf_conntrack.h>
- #include <net/netfilter/nf_conntrack_core.h>
---- /dev/null
-+++ b/include/uapi/linux/netfilter/xt_FLOWOFFLOAD.h
-@@ -0,0 +1,17 @@
-+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
-+#ifndef _XT_FLOWOFFLOAD_H
-+#define _XT_FLOWOFFLOAD_H
-+
-+#include <linux/types.h>
-+
-+enum {
-+	XT_FLOWOFFLOAD_HW	= 1 << 0,
-+
-+	XT_FLOWOFFLOAD_MASK	= XT_FLOWOFFLOAD_HW
-+};
-+
-+struct xt_flowoffload_target_info {
-+	__u32 flags;
-+};
-+
-+#endif /* _XT_FLOWOFFLOAD_H */

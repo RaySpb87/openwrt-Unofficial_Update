@@ -1,60 +1,6 @@
-From e3777dd42dc6f1b9cb099836707a3e7971dcf4df Mon Sep 17 00:00:00 2001
-From: Kevin Darbyshire-Bryant <ldir@darbyshire-bryant.me.uk>
-Date: Wed, 13 Mar 2019 20:54:49 +0000
-Subject: [PATCH] net: sched: Introduce act_ctinfo action
-
-ctinfo is a new tc filter action module.  It is designed to restore DSCPs
-stored in conntrack marks
-
-The feature is intended for use and has been found useful for restoring
-ingress classifications based on egress classifications across links
-that bleach or otherwise change DSCP, typically home ISP Internet links.
-Restoring DSCP on ingress on the WAN link allows qdiscs such as CAKE to
-shape inbound packets according to policies that are easier to implement
-on egress.
-
-Ingress classification is traditionally a challenging task since
-iptables rules haven't yet run and tc filter/eBPF programs are pre-NAT
-lookups, hence are unable to see internal IPv4 addresses as used on the
-typical home masquerading gateway.
-
-ctinfo understands the following parameters:
-
-dscp mask[/statemask]
-
-mask - a 32 bit mask of at least 6 contiguous bits where conndscp will
-place the DSCP in conntrack mark.  The DSCP is left-shifted by the
-number of unset lower bits of the mask before storing into the mark
-field.
-
-statemask - a 32 bit mask of (usually) 1 bit length, outside the area
-specified by mask.  This represents a conditional operation flag the
-DSCP is only restored if the flag is set.  This is useful to implement a
-'one shot' iptables based classification where the 'complicated'
-iptables rules are only run once to classify the connection on initial
-(egress) packet and subsequent packets are all marked/restored with the
-same DSCP.  A mask of zero disables the conditional behaviour.
-
-optional parameters:
-
-zone - conntrack zone
-
-control - action related control (reclassify | pipe | drop | continue |
-ok | goto chain <CHAIN_INDEX>
-
-Signed-off-by: Kevin Darbyshire-Bryant <ldir@darbyshire-bryant.me.uk>
----
- include/net/tc_act/tc_ctinfo.h        |  33 +++
- include/uapi/linux/pkt_cls.h          |   3 +-
- include/uapi/linux/tc_act/tc_ctinfo.h |  29 ++
- net/sched/Kconfig                     |  13 +
- net/sched/Makefile                    |   1 +
- net/sched/act_ctinfo.c                | 394 ++++++++++++++++++++++++++
- 6 files changed, 472 insertions(+), 1 deletion(-)
- create mode 100644 include/net/tc_act/tc_ctinfo.h
- create mode 100644 include/uapi/linux/tc_act/tc_ctinfo.h
- create mode 100644 net/sched/act_ctinfo.c
-
+diff --git a/include/net/tc_act/tc_ctinfo.h b/include/net/tc_act/tc_ctinfo.h
+new file mode 100644
+index 00000000..f071c1d7
 --- /dev/null
 +++ b/include/net/tc_act/tc_ctinfo.h
 @@ -0,0 +1,33 @@
@@ -91,6 +37,8 @@ Signed-off-by: Kevin Darbyshire-Bryant <ldir@darbyshire-bryant.me.uk>
 +#define to_ctinfo(a) ((struct tcf_ctinfo *)a)
 +
 +#endif /* __NET_TC_CTINFO_H */
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index 46c50661..408b02fb 100644
 --- a/include/uapi/linux/pkt_cls.h
 +++ b/include/uapi/linux/pkt_cls.h
 @@ -66,7 +66,8 @@ enum {
@@ -103,6 +51,9 @@ Signed-off-by: Kevin Darbyshire-Bryant <ldir@darbyshire-bryant.me.uk>
  };
  
  #define TCA_ID_MAX __TCA_ID_MAX
+diff --git a/include/uapi/linux/tc_act/tc_ctinfo.h b/include/uapi/linux/tc_act/tc_ctinfo.h
+new file mode 100644
+index 00000000..f5f26d95
 --- /dev/null
 +++ b/include/uapi/linux/tc_act/tc_ctinfo.h
 @@ -0,0 +1,29 @@
@@ -135,9 +86,11 @@ Signed-off-by: Kevin Darbyshire-Bryant <ldir@darbyshire-bryant.me.uk>
 +#define TCA_CTINFO_MAX (__TCA_CTINFO_MAX - 1)
 +
 +#endif
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index 782114a2..d2ee449e 100644
 --- a/net/sched/Kconfig
 +++ b/net/sched/Kconfig
-@@ -808,6 +808,19 @@ config NET_ACT_CONNMARK
+@@ -769,6 +769,19 @@ config NET_ACT_CONNMARK
  	  To compile this code as a module, choose M here: the
  	  module will be called act_connmark.
  
@@ -157,6 +110,8 @@ Signed-off-by: Kevin Darbyshire-Bryant <ldir@darbyshire-bryant.me.uk>
  config NET_ACT_SKBMOD
          tristate "skb data modification action"
          depends on NET_CLS_ACT
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index c156c182..90330aea 100644
 --- a/net/sched/Makefile
 +++ b/net/sched/Makefile
 @@ -21,6 +21,7 @@ obj-$(CONFIG_NET_ACT_CSUM)	+= act_csum.o
@@ -167,6 +122,9 @@ Signed-off-by: Kevin Darbyshire-Bryant <ldir@darbyshire-bryant.me.uk>
  obj-$(CONFIG_NET_ACT_SKBMOD)	+= act_skbmod.o
  obj-$(CONFIG_NET_ACT_IFE)	+= act_ife.o
  obj-$(CONFIG_NET_IFE_SKBMARK)	+= act_meta_mark.o
+diff --git a/net/sched/act_ctinfo.c b/net/sched/act_ctinfo.c
+new file mode 100644
+index 00000000..f19eecde
 --- /dev/null
 +++ b/net/sched/act_ctinfo.c
 @@ -0,0 +1,394 @@

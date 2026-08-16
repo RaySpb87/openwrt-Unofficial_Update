@@ -1,31 +1,8 @@
-From 5a1c18b761ddb299a06746948b9ec2814b04fa92 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
-Date: Wed, 2 Jan 2019 00:00:01 +0100
-Subject: [PATCH] bcma: keep a direct pointer to the struct device
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-Accessing struct device is pretty useful/common so having a direct
-pointer:
-1) Simplifies some code
-2) Makes bcma_bus_get_host_dev() unneeded
-3) Allows further improvements like using dev_* printing helpers
-
-Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
-Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
----
- drivers/bcma/bcma_private.h |  1 -
- drivers/bcma/driver_gpio.c  |  2 +-
- drivers/bcma/host_pci.c     |  2 ++
- drivers/bcma/host_soc.c     |  4 ++--
- drivers/bcma/main.c         | 45 +++++++++----------------------------
- include/linux/bcma/bcma.h   | 11 +++------
- 6 files changed, 18 insertions(+), 47 deletions(-)
-
+diff --git a/drivers/bcma/bcma_private.h b/drivers/bcma/bcma_private.h
+index a4aac370..1f0e6631 100644
 --- a/drivers/bcma/bcma_private.h
 +++ b/drivers/bcma/bcma_private.h
-@@ -33,7 +33,6 @@ int __init bcma_bus_early_register(struc
+@@ -33,7 +33,6 @@ int __init bcma_bus_early_register(struct bcma_bus *bus);
  int bcma_bus_suspend(struct bcma_bus *bus);
  int bcma_bus_resume(struct bcma_bus *bus);
  #endif
@@ -33,9 +10,11 @@ Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
  
  /* scan.c */
  void bcma_detect_chip(struct bcma_bus *bus);
+diff --git a/drivers/bcma/driver_gpio.c b/drivers/bcma/driver_gpio.c
+index 982d5781..0cd581b8 100644
 --- a/drivers/bcma/driver_gpio.c
 +++ b/drivers/bcma/driver_gpio.c
-@@ -183,7 +183,7 @@ int bcma_gpio_init(struct bcma_drv_cc *c
+@@ -183,7 +183,7 @@ int bcma_gpio_init(struct bcma_drv_cc *cc)
  	chip->direction_input	= bcma_gpio_direction_input;
  	chip->direction_output	= bcma_gpio_direction_output;
  	chip->owner		= THIS_MODULE;
@@ -44,9 +23,11 @@ Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
  #if IS_BUILTIN(CONFIG_OF)
  	chip->of_node		= cc->core->dev.of_node;
  #endif
+diff --git a/drivers/bcma/host_pci.c b/drivers/bcma/host_pci.c
+index 92584299..2d3a7270 100644
 --- a/drivers/bcma/host_pci.c
 +++ b/drivers/bcma/host_pci.c
-@@ -196,6 +196,8 @@ static int bcma_host_pci_probe(struct pc
+@@ -196,6 +196,8 @@ static int bcma_host_pci_probe(struct pci_dev *dev,
  		goto err_pci_release_regions;
  	}
  
@@ -55,9 +36,11 @@ Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
  	/* Map MMIO */
  	err = -ENOMEM;
  	bus->mmio = pci_iomap(dev, 0, ~0UL);
+diff --git a/drivers/bcma/host_soc.c b/drivers/bcma/host_soc.c
+index 2dce3478..c8073b50 100644
 --- a/drivers/bcma/host_soc.c
 +++ b/drivers/bcma/host_soc.c
-@@ -179,7 +179,6 @@ int __init bcma_host_soc_register(struct
+@@ -179,7 +179,6 @@ int __init bcma_host_soc_register(struct bcma_soc *soc)
  	/* Host specific */
  	bus->hosttype = BCMA_HOSTTYPE_SOC;
  	bus->ops = &bcma_host_soc_ops;
@@ -65,7 +48,7 @@ Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
  
  	/* Initialize struct, detect chip */
  	bcma_init_bus(bus);
-@@ -213,6 +212,8 @@ static int bcma_host_soc_probe(struct pl
+@@ -213,6 +212,8 @@ static int bcma_host_soc_probe(struct platform_device *pdev)
  	if (!bus)
  		return -ENOMEM;
  
@@ -74,7 +57,7 @@ Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
  	/* Map MMIO */
  	bus->mmio = of_iomap(np, 0);
  	if (!bus->mmio)
-@@ -221,7 +222,6 @@ static int bcma_host_soc_probe(struct pl
+@@ -221,7 +222,6 @@ static int bcma_host_soc_probe(struct platform_device *pdev)
  	/* Host specific */
  	bus->hosttype = BCMA_HOSTTYPE_SOC;
  	bus->ops = &bcma_host_soc_ops;
@@ -82,9 +65,11 @@ Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
  
  	/* Initialize struct, detect chip */
  	bcma_init_bus(bus);
+diff --git a/drivers/bcma/main.c b/drivers/bcma/main.c
+index b1783f5b..0bcc0d1a 100644
 --- a/drivers/bcma/main.c
 +++ b/drivers/bcma/main.c
-@@ -223,8 +223,8 @@ unsigned int bcma_core_irq(struct bcma_d
+@@ -223,8 +223,8 @@ unsigned int bcma_core_irq(struct bcma_device *core, int num)
  			mips_irq = bcma_core_mips_irq(core);
  			return mips_irq <= 4 ? mips_irq + 2 : 0;
  		}
@@ -95,7 +80,7 @@ Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
  		return 0;
  	case BCMA_HOSTTYPE_SDIO:
  		return 0;
-@@ -240,18 +240,18 @@ void bcma_prepare_core(struct bcma_bus *
+@@ -240,18 +240,18 @@ void bcma_prepare_core(struct bcma_bus *bus, struct bcma_device *core)
  	core->dev.release = bcma_release_core_dev;
  	core->dev.bus = &bcma_bus_type;
  	dev_set_name(&core->dev, "bcma%d:%d", bus->num, core->core_index);
@@ -120,7 +105,7 @@ Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
  		} else {
  			core->dev.dma_mask = &core->dev.coherent_dma_mask;
  			core->dma_dev = &core->dev;
-@@ -262,28 +262,6 @@ void bcma_prepare_core(struct bcma_bus *
+@@ -262,28 +262,6 @@ void bcma_prepare_core(struct bcma_bus *bus, struct bcma_device *core)
  	}
  }
  
@@ -149,7 +134,7 @@ Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
  void bcma_init_bus(struct bcma_bus *bus)
  {
  	mutex_lock(&bcma_buses_mutex);
-@@ -402,7 +380,6 @@ int bcma_bus_register(struct bcma_bus *b
+@@ -402,7 +380,6 @@ int bcma_bus_register(struct bcma_bus *bus)
  {
  	int err;
  	struct bcma_device *core;
@@ -157,7 +142,7 @@ Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
  
  	/* Scan for devices (cores) */
  	err = bcma_bus_scan(bus);
-@@ -425,10 +402,8 @@ int bcma_bus_register(struct bcma_bus *b
+@@ -425,10 +402,8 @@ int bcma_bus_register(struct bcma_bus *bus)
  		bcma_core_pci_early_init(&bus->drv_pci[0]);
  	}
  
@@ -170,9 +155,11 @@ Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
  
  	/* Cores providing flash access go before SPROM init */
  	list_for_each_entry(core, &bus->cores, list) {
+diff --git a/include/linux/bcma/bcma.h b/include/linux/bcma/bcma.h
+index ef61f360..60b94b94 100644
 --- a/include/linux/bcma/bcma.h
 +++ b/include/linux/bcma/bcma.h
-@@ -332,6 +332,8 @@ extern int bcma_arch_register_fallback_s
+@@ -332,6 +332,8 @@ extern int bcma_arch_register_fallback_sprom(
  		struct ssb_sprom *out));
  
  struct bcma_bus {

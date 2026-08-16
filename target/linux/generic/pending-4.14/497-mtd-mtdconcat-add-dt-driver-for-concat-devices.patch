@@ -1,46 +1,5 @@
-From e53f712d8eac71f54399b61038ccf87d2cee99d7 Mon Sep 17 00:00:00 2001
-From: Bernhard Frauendienst <kernel@nospam.obeliks.de>
-Date: Sat, 25 Aug 2018 12:35:22 +0200
-Subject: [PATCH 497/497] mtd: mtdconcat: add dt driver for concat devices
-
-Some mtd drivers like physmap variants have support for concatenating
-multiple mtd devices, but there is no generic way to define such a
-concat device from within the device tree.
-
-This is useful for some SoC boards that use multiple flash chips as
-memory banks of a single mtd device, with partitions spanning chip
-borders.
-
-This commit adds a driver for creating virtual mtd-concat devices. They
-must have a compatible = "mtd-concat" line, and define a list of devices
-to concat in the 'devices' property, for example:
-
-flash {
-  compatible = "mtd-concat";
-
-  devices = <&flash0 &flash1>;
-
-  partitions {
-    ...
-  };
-};
-
-The driver is added to the very end of the mtd Makefile to increase the
-likelyhood of all child devices already being loaded at the time of
-probing, preventing unnecessary deferred probes.
-
-Signed-off-by: Bernhard Frauendienst <kernel@nospam.obeliks.de>
----
- drivers/mtd/Kconfig                 |   2 +
- drivers/mtd/Makefile                |   3 +
- drivers/mtd/composite/Kconfig       |  12 +++
- drivers/mtd/composite/Makefile      |   6 ++
- drivers/mtd/composite/virt_concat.c | 128 ++++++++++++++++++++++++++++
- 5 files changed, 151 insertions(+)
- create mode 100644 drivers/mtd/composite/Kconfig
- create mode 100644 drivers/mtd/composite/Makefile
- create mode 100644 drivers/mtd/composite/virt_concat.c
-
+diff --git a/drivers/mtd/Kconfig b/drivers/mtd/Kconfig
+index cb55144d..07537a1f 100644
 --- a/drivers/mtd/Kconfig
 +++ b/drivers/mtd/Kconfig
 @@ -377,4 +377,6 @@ source "drivers/mtd/spi-nor/Kconfig"
@@ -50,15 +9,20 @@ Signed-off-by: Bernhard Frauendienst <kernel@nospam.obeliks.de>
 +source "drivers/mtd/composite/Kconfig"
 +
  endif # MTD
+diff --git a/drivers/mtd/Makefile b/drivers/mtd/Makefile
+index 28752f73..b873a05c 100644
 --- a/drivers/mtd/Makefile
 +++ b/drivers/mtd/Makefile
-@@ -39,3 +39,6 @@ obj-y		+= chips/ lpddr/ maps/ devices/ n
+@@ -39,3 +39,6 @@ obj-y		+= chips/ lpddr/ maps/ devices/ nand/ onenand/ tests/
  
  obj-$(CONFIG_MTD_SPI_NOR)	+= spi-nor/
  obj-$(CONFIG_MTD_UBI)		+= ubi/
 +
 +# Composite drivers must be loaded last
 +obj-y		+= composite/
+diff --git a/drivers/mtd/composite/Kconfig b/drivers/mtd/composite/Kconfig
+new file mode 100644
+index 00000000..0490fc02
 --- /dev/null
 +++ b/drivers/mtd/composite/Kconfig
 @@ -0,0 +1,12 @@
@@ -74,6 +38,9 @@ Signed-off-by: Bernhard Frauendienst <kernel@nospam.obeliks.de>
 +	  used as one device with partitions spanning across device boundaries.
 +
 +endmenu
+diff --git a/drivers/mtd/composite/Makefile b/drivers/mtd/composite/Makefile
+new file mode 100644
+index 00000000..8421a0a3
 --- /dev/null
 +++ b/drivers/mtd/composite/Makefile
 @@ -0,0 +1,6 @@
@@ -83,6 +50,9 @@ Signed-off-by: Bernhard Frauendienst <kernel@nospam.obeliks.de>
 +#
 +
 +obj-$(CONFIG_MTD_VIRT_CONCAT)   += virt_concat.o
+diff --git a/drivers/mtd/composite/virt_concat.c b/drivers/mtd/composite/virt_concat.c
+new file mode 100644
+index 00000000..bfd43218
 --- /dev/null
 +++ b/drivers/mtd/composite/virt_concat.c
 @@ -0,0 +1,128 @@

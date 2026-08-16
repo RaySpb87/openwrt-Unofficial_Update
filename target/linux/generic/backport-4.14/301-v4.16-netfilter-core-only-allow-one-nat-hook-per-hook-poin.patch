@@ -1,46 +1,5 @@
-From: Florian Westphal <fw@strlen.de>
-Date: Fri, 8 Dec 2017 17:01:54 +0100
-Subject: [PATCH] netfilter: core: only allow one nat hook per hook point
-
-The netfilter NAT core cannot deal with more than one NAT hook per hook
-location (prerouting, input ...), because the NAT hooks install a NAT null
-binding in case the iptables nat table (iptable_nat hooks) or the
-corresponding nftables chain (nft nat hooks) doesn't specify a nat
-transformation.
-
-Null bindings are needed to detect port collsisions between NAT-ed and
-non-NAT-ed connections.
-
-This causes nftables NAT rules to not work when iptable_nat module is
-loaded, and vice versa because nat binding has already been attached
-when the second nat hook is consulted.
-
-The netfilter core is not really the correct location to handle this
-(hooks are just hooks, the core has no notion of what kinds of side
- effects a hook implements), but its the only place where we can check
-for conflicts between both iptables hooks and nftables hooks without
-adding dependencies.
-
-So add nat annotation to hook_ops to describe those hooks that will
-add NAT bindings and then make core reject if such a hook already exists.
-The annotation fills a padding hole, in case further restrictions appar
-we might change this to a 'u8 type' instead of bool.
-
-iptables error if nft nat hook active:
-iptables -t nat -A POSTROUTING -j MASQUERADE
-iptables v1.4.21: can't initialize iptables table `nat': File exists
-Perhaps iptables or your kernel needs to be upgraded.
-
-nftables error if iptables nat table present:
-nft -f /etc/nftables/ipv4-nat
-/usr/etc/nftables/ipv4-nat:3:1-2: Error: Could not process rule: File exists
-table nat {
-^^
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index ee7a9cbd..85a0b0d5 100644
 --- a/include/linux/netfilter.h
 +++ b/include/linux/netfilter.h
 @@ -67,6 +67,7 @@ struct nf_hook_ops {
@@ -51,9 +10,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	unsigned int		hooknum;
  	/* Hooks are ordered in ascending priority. */
  	int			priority;
+diff --git a/net/ipv4/netfilter/iptable_nat.c b/net/ipv4/netfilter/iptable_nat.c
+index a1a07b33..0f7255cc 100644
 --- a/net/ipv4/netfilter/iptable_nat.c
 +++ b/net/ipv4/netfilter/iptable_nat.c
-@@ -72,6 +72,7 @@ static const struct nf_hook_ops nf_nat_i
+@@ -72,6 +72,7 @@ static const struct nf_hook_ops nf_nat_ipv4_ops[] = {
  	{
  		.hook		= iptable_nat_ipv4_in,
  		.pf		= NFPROTO_IPV4,
@@ -61,7 +22,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  		.hooknum	= NF_INET_PRE_ROUTING,
  		.priority	= NF_IP_PRI_NAT_DST,
  	},
-@@ -79,6 +80,7 @@ static const struct nf_hook_ops nf_nat_i
+@@ -79,6 +80,7 @@ static const struct nf_hook_ops nf_nat_ipv4_ops[] = {
  	{
  		.hook		= iptable_nat_ipv4_out,
  		.pf		= NFPROTO_IPV4,
@@ -69,7 +30,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  		.hooknum	= NF_INET_POST_ROUTING,
  		.priority	= NF_IP_PRI_NAT_SRC,
  	},
-@@ -86,6 +88,7 @@ static const struct nf_hook_ops nf_nat_i
+@@ -86,6 +88,7 @@ static const struct nf_hook_ops nf_nat_ipv4_ops[] = {
  	{
  		.hook		= iptable_nat_ipv4_local_fn,
  		.pf		= NFPROTO_IPV4,
@@ -77,7 +38,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  		.hooknum	= NF_INET_LOCAL_OUT,
  		.priority	= NF_IP_PRI_NAT_DST,
  	},
-@@ -93,6 +96,7 @@ static const struct nf_hook_ops nf_nat_i
+@@ -93,6 +96,7 @@ static const struct nf_hook_ops nf_nat_ipv4_ops[] = {
  	{
  		.hook		= iptable_nat_ipv4_fn,
  		.pf		= NFPROTO_IPV4,
@@ -85,9 +46,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  		.hooknum	= NF_INET_LOCAL_IN,
  		.priority	= NF_IP_PRI_NAT_SRC,
  	},
+diff --git a/net/ipv6/netfilter/ip6table_nat.c b/net/ipv6/netfilter/ip6table_nat.c
+index 99151257..47306e45 100644
 --- a/net/ipv6/netfilter/ip6table_nat.c
 +++ b/net/ipv6/netfilter/ip6table_nat.c
-@@ -74,6 +74,7 @@ static const struct nf_hook_ops nf_nat_i
+@@ -74,6 +74,7 @@ static const struct nf_hook_ops nf_nat_ipv6_ops[] = {
  	{
  		.hook		= ip6table_nat_in,
  		.pf		= NFPROTO_IPV6,
@@ -95,7 +58,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  		.hooknum	= NF_INET_PRE_ROUTING,
  		.priority	= NF_IP6_PRI_NAT_DST,
  	},
-@@ -81,6 +82,7 @@ static const struct nf_hook_ops nf_nat_i
+@@ -81,6 +82,7 @@ static const struct nf_hook_ops nf_nat_ipv6_ops[] = {
  	{
  		.hook		= ip6table_nat_out,
  		.pf		= NFPROTO_IPV6,
@@ -103,7 +66,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  		.hooknum	= NF_INET_POST_ROUTING,
  		.priority	= NF_IP6_PRI_NAT_SRC,
  	},
-@@ -88,12 +90,14 @@ static const struct nf_hook_ops nf_nat_i
+@@ -88,12 +90,14 @@ static const struct nf_hook_ops nf_nat_ipv6_ops[] = {
  	{
  		.hook		= ip6table_nat_local_fn,
  		.pf		= NFPROTO_IPV6,
@@ -118,9 +81,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  		.pf		= NFPROTO_IPV6,
  		.hooknum	= NF_INET_LOCAL_IN,
  		.priority	= NF_IP6_PRI_NAT_SRC,
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index 6fa6b2e0..5900ef80 100644
 --- a/net/netfilter/core.c
 +++ b/net/netfilter/core.c
-@@ -160,6 +160,12 @@ nf_hook_entries_grow(const struct nf_hoo
+@@ -160,6 +160,12 @@ nf_hook_entries_grow(const struct nf_hook_entries *old,
  			++i;
  			continue;
  		}
@@ -133,9 +98,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  		if (inserted || reg->priority > orig_ops[i]->priority) {
  			new_ops[nhooks] = (void *)orig_ops[i];
  			new->hooks[nhooks] = old->hooks[i];
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 27c24c99..86a5fae9 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
-@@ -1446,6 +1446,8 @@ static int nf_tables_addchain(struct nft
+@@ -1466,6 +1466,8 @@ static int nf_tables_addchain(struct nft_ctx *ctx, u8 family, u8 genmask,
  				ops->hook = hookfn;
  			if (afi->hook_ops_init)
  				afi->hook_ops_init(ops, i);

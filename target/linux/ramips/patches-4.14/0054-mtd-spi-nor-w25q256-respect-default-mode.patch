@@ -1,3 +1,5 @@
+diff --git a/drivers/mtd/spi-nor/spi-nor.c b/drivers/mtd/spi-nor/spi-nor.c
+index 0739f2da..04a26851 100644
 --- a/drivers/mtd/spi-nor/spi-nor.c
 +++ b/drivers/mtd/spi-nor/spi-nor.c
 @@ -144,20 +144,29 @@ static int read_fsr(struct spi_nor *nor)
@@ -33,7 +35,7 @@
  /*
   * Write status register 1 byte
   * Returns negative if error occurred.
-@@ -2914,9 +2923,16 @@ int spi_nor_scan(struct spi_nor *nor, co
+@@ -2914,9 +2923,16 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
  	} else if (mtd->size > 0x1000000) {
  		/* enable 4-byte addressing if the device exceeds 16MiB */
  		nor->addr_width = 4;
@@ -53,6 +55,8 @@
  			 info->flags & SPI_NOR_4B_OPCODES)
  			spi_nor_set_4byte_opcodes(nor, info);
  		else
+diff --git a/include/linux/mtd/spi-nor.h b/include/linux/mtd/spi-nor.h
+index c321e5d0..3e5bfbff 100644
 --- a/include/linux/mtd/spi-nor.h
 +++ b/include/linux/mtd/spi-nor.h
 @@ -103,6 +103,7 @@

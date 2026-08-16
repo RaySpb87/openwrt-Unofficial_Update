@@ -1,13 +1,5 @@
-From: Felix Fietkau <nbd@nbd.name>
-Date: Sun, 25 Feb 2018 15:39:56 +0100
-Subject: [PATCH] netfilter: nf_flow_table: in flow_offload_lookup, skip
- entries being deleted
-
-Preparation for sending flows back to the slow path
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
-
+diff --git a/net/netfilter/nf_flow_table_core.c b/net/netfilter/nf_flow_table_core.c
+index b45b13a5..a1ecee9e 100644
 --- a/net/netfilter/nf_flow_table_core.c
 +++ b/net/netfilter/nf_flow_table_core.c
 @@ -184,8 +184,21 @@ struct flow_offload_tuple_rhash *

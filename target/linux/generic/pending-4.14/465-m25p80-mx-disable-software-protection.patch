@@ -1,14 +1,8 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: Disable software protection bits for Macronix flashes.
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- drivers/mtd/spi-nor/spi-nor.c | 1 +
- 1 file changed, 1 insertion(+)
-
+diff --git a/drivers/mtd/spi-nor/spi-nor.c b/drivers/mtd/spi-nor/spi-nor.c
+index 1f950195..31d3f54f 100644
 --- a/drivers/mtd/spi-nor/spi-nor.c
 +++ b/drivers/mtd/spi-nor/spi-nor.c
-@@ -2733,6 +2733,7 @@ int spi_nor_scan(struct spi_nor *nor, co
+@@ -2733,6 +2733,7 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
  
  	if (JEDEC_MFR(info) == SNOR_MFR_ATMEL ||
  	    JEDEC_MFR(info) == SNOR_MFR_INTEL ||

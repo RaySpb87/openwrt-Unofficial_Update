@@ -1,12 +1,5 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: netfilter: add support for flushing conntrack via /proc
-
-lede-commit 8193bbe59a74d34d6a26d4a8cb857b1952905314
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- net/netfilter/nf_conntrack_standalone.c | 59 ++++++++++++++++++++++++++++++++-
- 1 file changed, 58 insertions(+), 1 deletion(-)
-
+diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
+index 37c26d68..dd60df1c 100644
 --- a/net/netfilter/nf_conntrack_standalone.c
 +++ b/net/netfilter/nf_conntrack_standalone.c
 @@ -17,6 +17,7 @@
@@ -17,7 +10,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  #include <net/net_namespace.h>
  #ifdef CONFIG_SYSCTL
  #include <linux/sysctl.h>
-@@ -382,10 +383,66 @@ static int ct_open(struct inode *inode,
+@@ -382,10 +383,66 @@ static int ct_open(struct inode *inode, struct file *file)
  			sizeof(struct ct_iter_state));
  }
  
@@ -84,7 +77,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	.llseek  = seq_lseek,
  	.release = seq_release_net,
  };
-@@ -489,7 +546,7 @@ static int nf_conntrack_standalone_init_
+@@ -489,7 +546,7 @@ static int nf_conntrack_standalone_init_proc(struct net *net)
  	kuid_t root_uid;
  	kgid_t root_gid;
  

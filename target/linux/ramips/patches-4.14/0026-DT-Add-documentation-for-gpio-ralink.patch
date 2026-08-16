@@ -1,19 +1,6 @@
-From d410e5478c622c01fcf31427533df5f433df9146 Mon Sep 17 00:00:00 2001
-From: John Crispin <blogic@openwrt.org>
-Date: Sun, 28 Jul 2013 19:45:30 +0200
-Subject: [PATCH 26/53] DT: Add documentation for gpio-ralink
-
-Describe gpio-ralink binding.
-
-Signed-off-by: John Crispin <blogic@openwrt.org>
-Cc: linux-mips@linux-mips.org
-Cc: devicetree@vger.kernel.org
-Cc: linux-gpio@vger.kernel.org
----
- .../devicetree/bindings/gpio/gpio-ralink.txt       |   40 ++++++++++++++++++++
- 1 file changed, 40 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/gpio/gpio-ralink.txt
-
+diff --git a/Documentation/devicetree/bindings/gpio/gpio-ralink.txt b/Documentation/devicetree/bindings/gpio/gpio-ralink.txt
+new file mode 100644
+index 00000000..5cd17f22
 --- /dev/null
 +++ b/Documentation/devicetree/bindings/gpio/gpio-ralink.txt
 @@ -0,0 +1,40 @@

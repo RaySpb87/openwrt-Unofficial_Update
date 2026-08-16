@@ -1,13 +1,5 @@
-From: Florian Westphal <fw@strlen.de>
-Date: Wed, 6 Dec 2017 16:18:16 +0100
-Subject: [PATCH] netfilter: meta: secpath support
-
-replacement for iptables "-m policy --dir in --policy {ipsec,none}".
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index c7bb18ea..5c5a0720 100644
 --- a/include/uapi/linux/netfilter/nf_tables.h
 +++ b/include/uapi/linux/netfilter/nf_tables.h
 @@ -777,6 +777,7 @@ enum nft_exthdr_attributes {
@@ -26,9 +18,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  };
  
  /**
+diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
+index c9bf2b17..675d0e4c 100644
 --- a/net/netfilter/nft_meta.c
 +++ b/net/netfilter/nft_meta.c
-@@ -210,6 +210,11 @@ void nft_meta_get_eval(const struct nft_
+@@ -210,6 +210,11 @@ void nft_meta_get_eval(const struct nft_expr *expr,
  		*dest = prandom_u32_state(state);
  		break;
  	}
@@ -40,7 +34,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	default:
  		WARN_ON(1);
  		goto err;
-@@ -310,6 +315,11 @@ int nft_meta_get_init(const struct nft_c
+@@ -310,6 +315,11 @@ int nft_meta_get_init(const struct nft_ctx *ctx,
  		prandom_init_once(&nft_prandom_state);
  		len = sizeof(u32);
  		break;
@@ -52,7 +46,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	default:
  		return -EOPNOTSUPP;
  	}
-@@ -320,6 +330,38 @@ int nft_meta_get_init(const struct nft_c
+@@ -319,6 +329,38 @@ int nft_meta_get_init(const struct nft_ctx *ctx,
  }
  EXPORT_SYMBOL_GPL(nft_meta_get_init);
  
@@ -91,7 +85,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  int nft_meta_set_validate(const struct nft_ctx *ctx,
  			  const struct nft_expr *expr,
  			  const struct nft_data **data)
-@@ -436,6 +478,7 @@ static const struct nft_expr_ops nft_met
+@@ -434,6 +476,7 @@ static const struct nft_expr_ops nft_meta_get_ops = {
  	.eval		= nft_meta_get_eval,
  	.init		= nft_meta_get_init,
  	.dump		= nft_meta_get_dump,

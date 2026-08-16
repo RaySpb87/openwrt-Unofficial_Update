@@ -1,20 +1,8 @@
-From 7adbe9a88c33c6e362a10b109d963b5500a21f00 Mon Sep 17 00:00:00 2001
-From: John Crispin <blogic@openwrt.org>
-Date: Sun, 27 Jul 2014 09:34:05 +0100
-Subject: [PATCH 25/53] pinctrl: ralink: add pinctrl driver
-
-Signed-off-by: John Crispin <blogic@openwrt.org>
----
- arch/mips/Kconfig                |    2 +
- drivers/pinctrl/Kconfig          |    5 +
- drivers/pinctrl/Makefile         |    1 +
- drivers/pinctrl/pinctrl-rt2880.c |  474 ++++++++++++++++++++++++++++++++++++++
- 4 files changed, 482 insertions(+)
- create mode 100644 drivers/pinctrl/pinctrl-rt2880.c
-
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+index 73322c23..11481944 100644
 --- a/arch/mips/Kconfig
 +++ b/arch/mips/Kconfig
-@@ -632,6 +632,8 @@ config RALINK
+@@ -633,6 +633,8 @@ config RALINK
  	select CLKDEV_LOOKUP
  	select ARCH_HAS_RESET_CONTROLLER
  	select RESET_CONTROLLER
@@ -23,6 +11,8 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  
  config SGI_IP22
  	bool "SGI IP22 (Indy/Indigo2)"
+diff --git a/drivers/pinctrl/Kconfig b/drivers/pinctrl/Kconfig
+index a73c794b..8cc412cb 100644
 --- a/drivers/pinctrl/Kconfig
 +++ b/drivers/pinctrl/Kconfig
 @@ -143,6 +143,11 @@ config PINCTRL_LPC18XX
@@ -37,9 +27,11 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  config PINCTRL_FALCON
  	bool
  	depends on SOC_FALCON
+diff --git a/drivers/pinctrl/Makefile b/drivers/pinctrl/Makefile
+index d0d4844f..05ddab6d 100644
 --- a/drivers/pinctrl/Makefile
 +++ b/drivers/pinctrl/Makefile
-@@ -28,6 +28,7 @@ obj-$(CONFIG_PINCTRL_PALMAS)	+= pinctrl-
+@@ -28,6 +28,7 @@ obj-$(CONFIG_PINCTRL_PALMAS)	+= pinctrl-palmas.o
  obj-$(CONFIG_PINCTRL_PIC32)	+= pinctrl-pic32.o
  obj-$(CONFIG_PINCTRL_PISTACHIO)	+= pinctrl-pistachio.o
  obj-$(CONFIG_PINCTRL_ROCKCHIP)	+= pinctrl-rockchip.o
@@ -47,6 +39,9 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  obj-$(CONFIG_PINCTRL_RZA1)	+= pinctrl-rza1.o
  obj-$(CONFIG_PINCTRL_SINGLE)	+= pinctrl-single.o
  obj-$(CONFIG_PINCTRL_SIRF)	+= sirf/
+diff --git a/drivers/pinctrl/pinctrl-rt2880.c b/drivers/pinctrl/pinctrl-rt2880.c
+new file mode 100644
+index 00000000..4c3968be
 --- /dev/null
 +++ b/drivers/pinctrl/pinctrl-rt2880.c
 @@ -0,0 +1,472 @@

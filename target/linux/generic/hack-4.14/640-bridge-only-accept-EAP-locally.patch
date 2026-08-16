@@ -1,18 +1,8 @@
-From: Felix Fietkau <nbd@nbd.name>
-Date: Fri, 7 Jul 2017 17:18:54 +0200
-Subject: bridge: only accept EAP locally
-
-When bridging, do not forward EAP frames to other ports, only deliver
-them locally, regardless of the state.
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
-[add disable_eap_hack sysfs attribute]
-Signed-off-by: Etienne Champetier <champetier.etienne@gmail.com>
----
-
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 87d5dd9d..3eb59d0f 100644
 --- a/net/bridge/br_input.c
 +++ b/net/bridge/br_input.c
-@@ -166,10 +166,14 @@ int br_handle_frame_finish(struct net *n
+@@ -173,10 +173,14 @@ int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb
  		}
  	}
  
@@ -28,6 +18,8 @@ Signed-off-by: Etienne Champetier <champetier.etienne@gmail.com>
  	BR_INPUT_SKB_CB(skb)->src_port_isolated = !!(p->flags & BR_ISOLATED);
  
  	if (IS_ENABLED(CONFIG_INET) && skb->protocol == htons(ETH_P_ARP))
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 50a8ccdf..3ee99f83 100644
 --- a/net/bridge/br_private.h
 +++ b/net/bridge/br_private.h
 @@ -320,6 +320,8 @@ struct net_bridge {
@@ -39,9 +31,11 @@ Signed-off-by: Etienne Champetier <champetier.etienne@gmail.com>
  	/* STP */
  	bridge_id			designated_root;
  	bridge_id			bridge_id;
+diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
+index 723f25ee..2a6768f7 100644
 --- a/net/bridge/br_sysfs_br.c
 +++ b/net/bridge/br_sysfs_br.c
-@@ -170,6 +170,30 @@ static ssize_t group_fwd_mask_store(stru
+@@ -170,6 +170,30 @@ static ssize_t group_fwd_mask_store(struct device *d,
  }
  static DEVICE_ATTR_RW(group_fwd_mask);
  
@@ -72,7 +66,7 @@ Signed-off-by: Etienne Champetier <champetier.etienne@gmail.com>
  static ssize_t priority_show(struct device *d, struct device_attribute *attr,
  			     char *buf)
  {
-@@ -817,6 +841,7 @@ static struct attribute *bridge_attrs[]
+@@ -817,6 +841,7 @@ static struct attribute *bridge_attrs[] = {
  	&dev_attr_ageing_time.attr,
  	&dev_attr_stp_state.attr,
  	&dev_attr_group_fwd_mask.attr,

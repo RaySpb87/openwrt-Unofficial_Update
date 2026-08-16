@@ -1,24 +1,8 @@
-From 98534a58c8a40cdc9e3bcb04d74719fbcedfeb52 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
-Date: Tue, 26 Jun 2018 00:05:08 +0200
-Subject: [PATCH] mtd: parsers: trx: add of_match_table with the new DT binding
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-This allows using TRX parser to find TRX partitions on flash device
-described in DT using a proper binding. It's useful for devices storing
-firmware on a separated flash and having rootfs partition in it.
-
-Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
-Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
----
- drivers/mtd/parsers/parser_trx.c | 7 +++++++
- 1 file changed, 7 insertions(+)
-
+diff --git a/drivers/mtd/parsers/parser_trx.c b/drivers/mtd/parsers/parser_trx.c
+index df360a75..f580a41a 100644
 --- a/drivers/mtd/parsers/parser_trx.c
 +++ b/drivers/mtd/parsers/parser_trx.c
-@@ -116,9 +116,16 @@ static int parser_trx_parse(struct mtd_i
+@@ -116,9 +116,16 @@ static int parser_trx_parse(struct mtd_info *mtd,
  	return i;
  };
  

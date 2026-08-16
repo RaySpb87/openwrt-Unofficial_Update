@@ -1,16 +1,5 @@
-From: Roman Yeryomin <roman@advem.lv>
-Subject: kernel: add at803x fix for sgmii mode
-
-Some (possibly broken) bootloaders incorreclty initialize at8033
-phy. This patch enables sgmii autonegotiation mode.
-
-[john@phrozen.org: felix added this to his upstream queue]
-
-Signed-off-by: Roman Yeryomin <roman@advem.lv>
----
- drivers/net/phy/at803x.c | 25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
-
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+index af910284..cc37145a 100644
 --- a/drivers/net/phy/at803x.c
 +++ b/drivers/net/phy/at803x.c
 @@ -46,6 +46,7 @@
@@ -21,7 +10,7 @@ Signed-off-by: Roman Yeryomin <roman@advem.lv>
  
  #define AT803X_PCS_SMART_EEE_CTRL3			0x805D
  #define AT803X_SMART_EEE_CTRL3_LPI_TX_DELAY_SEL_MASK	0x3
-@@ -293,6 +294,27 @@ static int at803x_config_init(struct phy
+@@ -293,6 +294,27 @@ static int at803x_config_init(struct phy_device *phydev)
  {
  	struct at803x_platform_data *pdata;
  	int ret;

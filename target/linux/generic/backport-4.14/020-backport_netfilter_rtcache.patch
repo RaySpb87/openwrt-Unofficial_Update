@@ -1,52 +1,17 @@
-From 1bb0c3ec899827cfa4668bb63a08713a40744d21 Mon Sep 17 00:00:00 2001
-From: Florian Westphal <fw@strlen.de>
-Date: Sun, 9 Jul 2017 08:58:30 +0200
-Subject: [PATCH] netfilter: conntrack: cache route for forwarded connections
-
-... to avoid per-packet FIB lookup if possible.
-
-The cached dst is re-used provided the input interface
-is the same as that of the previous packet in the same direction.
-
-If not, the cached dst is invalidated.
-
-For ipv6 we also need to store sernum, else dst_check doesn't work,
-pointed out by Eric Dumazet.
-
-This should speed up forwarding when conntrack is already in use
-anyway, especially when using reverse path filtering -- active RPF
-enforces two FIB lookups for each packet.
-
-Before the routing cache removal this didn't matter since RPF was performed
-only when route cache didn't yield a result; but without route cache it
-comes at higher price.
-
-Julian Anastasov suggested to add NETDEV_UNREGISTER handler to
-avoid holding on to dsts of 'frozen' conntracks.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- include/net/netfilter/nf_conntrack_extend.h  |   4 +
- include/net/netfilter/nf_conntrack_rtcache.h |  34 +++
- net/netfilter/Kconfig                        |  12 +
- net/netfilter/Makefile                       |   3 +
- net/netfilter/nf_conntrack_rtcache.c         | 428 +++++++++++++++++++++++++++
- 5 files changed, 481 insertions(+)
- create mode 100644 include/net/netfilter/nf_conntrack_rtcache.h
- create mode 100644 net/netfilter/nf_conntrack_rtcache.c
-
+diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
+index 21f887c5..2cc858ce 100644
 --- a/include/net/netfilter/nf_conntrack_extend.h
 +++ b/include/net/netfilter/nf_conntrack_extend.h
-@@ -28,6 +28,9 @@ enum nf_ct_ext_id {
+@@ -27,6 +27,9 @@ enum nf_ct_ext_id {
+ #endif
  #if IS_ENABLED(CONFIG_NETFILTER_SYNPROXY)
  	NF_CT_EXT_SYNPROXY,
- #endif
++#endif
 +#if IS_ENABLED(CONFIG_NF_CONNTRACK_RTCACHE)
 +	NF_CT_EXT_RTCACHE,
-+#endif
+ #endif
  	NF_CT_EXT_NUM,
  };
- 
 @@ -40,6 +43,7 @@ enum nf_ct_ext_id {
  #define NF_CT_EXT_TIMEOUT_TYPE struct nf_conn_timeout
  #define NF_CT_EXT_LABELS_TYPE struct nf_conn_labels
@@ -55,6 +20,9 @@ Signed-off-by: Florian Westphal <fw@strlen.de>
  
  /* Extensions: optional stuff which isn't permanently in struct. */
  struct nf_ct_ext {
+diff --git a/include/net/netfilter/nf_conntrack_rtcache.h b/include/net/netfilter/nf_conntrack_rtcache.h
+new file mode 100644
+index 00000000..e2fb3024
 --- /dev/null
 +++ b/include/net/netfilter/nf_conntrack_rtcache.h
 @@ -0,0 +1,34 @@
@@ -92,9 +60,11 @@ Signed-off-by: Florian Westphal <fw@strlen.de>
 +{
 +	return rtc->cached_dst[dir].iif;
 +}
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 19d6821b..af2dcbab 100644
 --- a/net/netfilter/Kconfig
 +++ b/net/netfilter/Kconfig
-@@ -118,6 +118,18 @@ config NF_CONNTRACK_EVENTS
+@@ -117,6 +117,18 @@ config NF_CONNTRACK_EVENTS
  
  	  If unsure, say `N'.
  
@@ -113,9 +83,11 @@ Signed-off-by: Florian Westphal <fw@strlen.de>
  config NF_CONNTRACK_TIMEOUT
  	bool  'Connection tracking timeout'
  	depends on NETFILTER_ADVANCED
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index f78ed247..9695460e 100644
 --- a/net/netfilter/Makefile
 +++ b/net/netfilter/Makefile
-@@ -19,6 +19,9 @@ obj-$(CONFIG_NETFILTER_NETLINK_LOG) += n
+@@ -19,6 +19,9 @@ obj-$(CONFIG_NETFILTER_NETLINK_LOG) += nfnetlink_log.o
  # connection tracking
  obj-$(CONFIG_NF_CONNTRACK) += nf_conntrack.o
  
@@ -125,6 +97,9 @@ Signed-off-by: Florian Westphal <fw@strlen.de>
  obj-$(CONFIG_NF_CT_PROTO_GRE) += nf_conntrack_proto_gre.o
  
  # netlink interface for nf_conntrack
+diff --git a/net/netfilter/nf_conntrack_rtcache.c b/net/netfilter/nf_conntrack_rtcache.c
+new file mode 100644
+index 00000000..f6e3d463
 --- /dev/null
 +++ b/net/netfilter/nf_conntrack_rtcache.c
 @@ -0,0 +1,428 @@

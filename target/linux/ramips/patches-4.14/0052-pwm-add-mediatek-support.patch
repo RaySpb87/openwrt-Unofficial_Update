@@ -1,16 +1,5 @@
-From fc8f96309c21c1bc3276427309cd7d361347d66e Mon Sep 17 00:00:00 2001
-From: John Crispin <blogic@openwrt.org>
-Date: Mon, 7 Dec 2015 17:16:50 +0100
-Subject: [PATCH 52/53] pwm: add mediatek support
-
-Signed-off-by: John Crispin <blogic@openwrt.org>
----
- drivers/pwm/Kconfig        |    9 +++
- drivers/pwm/Makefile       |    1 +
- drivers/pwm/pwm-mediatek.c |  173 ++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 183 insertions(+)
- create mode 100644 drivers/pwm/pwm-mediatek.c
-
+diff --git a/drivers/pwm/Kconfig b/drivers/pwm/Kconfig
+index 763ee50e..4695efc0 100644
 --- a/drivers/pwm/Kconfig
 +++ b/drivers/pwm/Kconfig
 @@ -302,6 +302,15 @@ config PWM_MEDIATEK
@@ -29,9 +18,11 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  config PWM_MXS
  	tristate "Freescale MXS PWM support"
  	depends on ARCH_MXS && OF
+diff --git a/drivers/pwm/Makefile b/drivers/pwm/Makefile
+index 0258a745..e2c56392 100644
 --- a/drivers/pwm/Makefile
 +++ b/drivers/pwm/Makefile
-@@ -28,6 +28,7 @@ obj-$(CONFIG_PWM_LPSS_PCI)	+= pwm-lpss-p
+@@ -28,6 +28,7 @@ obj-$(CONFIG_PWM_LPSS_PCI)	+= pwm-lpss-pci.o
  obj-$(CONFIG_PWM_LPSS_PLATFORM)	+= pwm-lpss-platform.o
  obj-$(CONFIG_PWM_MESON)		+= pwm-meson.o
  obj-$(CONFIG_PWM_MEDIATEK)	+= pwm-mediatek.o
@@ -39,6 +30,9 @@ Signed-off-by: John Crispin <blogic@openwrt.org>
  obj-$(CONFIG_PWM_MTK_DISP)	+= pwm-mtk-disp.o
  obj-$(CONFIG_PWM_MXS)		+= pwm-mxs.o
  obj-$(CONFIG_PWM_OMAP_DMTIMER)	+= pwm-omap-dmtimer.o
+diff --git a/drivers/pwm/pwm-mediatek-ramips.c b/drivers/pwm/pwm-mediatek-ramips.c
+new file mode 100644
+index 00000000..f9d8ed4b
 --- /dev/null
 +++ b/drivers/pwm/pwm-mediatek-ramips.c
 @@ -0,0 +1,173 @@

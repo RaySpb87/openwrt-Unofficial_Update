@@ -1,16 +1,5 @@
-From 30259408118f550f5969fda19c0d67020d21eda8 Mon Sep 17 00:00:00 2001
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Sat, 9 Dec 2017 15:26:37 +0100
-Subject: [PATCH 10/11] netfilter: core: pass family as parameter to
- nf_remove_net_hook()
-
-So static_key_slow_dec applies to the family behind NFPROTO_INET.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/core.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index 54e719fa..ca0ee1a1 100644
 --- a/net/netfilter/core.c
 +++ b/net/netfilter/core.c
 @@ -366,7 +366,7 @@ EXPORT_SYMBOL(nf_register_net_hook);
@@ -22,7 +11,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  {
  	struct nf_hook_ops **orig_ops;
  	bool found = false;
-@@ -384,14 +384,14 @@ static void nf_remove_net_hook(struct nf
+@@ -384,14 +384,14 @@ static void nf_remove_net_hook(struct nf_hook_entries *old,
  
  	if (found) {
  #ifdef CONFIG_NETFILTER_INGRESS
@@ -40,7 +29,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	}
  }
  
-@@ -412,7 +412,7 @@ void nf_unregister_net_hook(struct net *
+@@ -412,7 +412,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
  		return;
  	}
  

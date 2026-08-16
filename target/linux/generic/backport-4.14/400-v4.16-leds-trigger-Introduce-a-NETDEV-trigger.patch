@@ -1,23 +1,6 @@
-From 06f502f57d0d7728f9fa0f157ec5e4111ddb98f6 Mon Sep 17 00:00:00 2001
-From: Ben Whitten <ben.whitten@gmail.com>
-Date: Sun, 10 Dec 2017 21:17:55 +0000
-Subject: [PATCH] leds: trigger: Introduce a NETDEV trigger
-
-This commit introduces a NETDEV trigger for named device
-activity. Available triggers are link, rx, and tx.
-
-Signed-off-by: Ben Whitten <ben.whitten@gmail.com>
-Acked-by: Pavel Machek <pavel@ucw.cz>
-Signed-off-by: Jacek Anaszewski <jacek.anaszewski@gmail.com>
----
- .../ABI/testing/sysfs-class-led-trigger-netdev     |  45 ++
- drivers/leds/trigger/Kconfig                       |   7 +
- drivers/leds/trigger/Makefile                      |   1 +
- drivers/leds/trigger/ledtrig-netdev.c              | 496 +++++++++++++++++++++
- 4 files changed, 549 insertions(+)
- create mode 100644 Documentation/ABI/testing/sysfs-class-led-trigger-netdev
- create mode 100644 drivers/leds/trigger/ledtrig-netdev.c
-
+diff --git a/Documentation/ABI/testing/sysfs-class-led-trigger-netdev b/Documentation/ABI/testing/sysfs-class-led-trigger-netdev
+new file mode 100644
+index 00000000..451af6d6
 --- /dev/null
 +++ b/Documentation/ABI/testing/sysfs-class-led-trigger-netdev
 @@ -0,0 +1,45 @@
@@ -66,6 +49,8 @@ Signed-off-by: Jacek Anaszewski <jacek.anaszewski@gmail.com>
 +		If set to 0 (default), the LED will not blink on reception.
 +		If set to 1, the LED will blink for the milliseconds specified
 +		in interval to signal reception.
+diff --git a/drivers/leds/trigger/Kconfig b/drivers/leds/trigger/Kconfig
+index 3f9ddb9f..4ec18538 100644
 --- a/drivers/leds/trigger/Kconfig
 +++ b/drivers/leds/trigger/Kconfig
 @@ -126,4 +126,11 @@ config LEDS_TRIGGER_PANIC
@@ -80,13 +65,18 @@ Signed-off-by: Jacek Anaszewski <jacek.anaszewski@gmail.com>
 +	  If unsure, say Y.
 +
  endif # LEDS_TRIGGERS
+diff --git a/drivers/leds/trigger/Makefile b/drivers/leds/trigger/Makefile
+index 9f2e8688..59e163d0 100644
 --- a/drivers/leds/trigger/Makefile
 +++ b/drivers/leds/trigger/Makefile
-@@ -11,3 +11,4 @@ obj-$(CONFIG_LEDS_TRIGGER_DEFAULT_ON)	+=
+@@ -11,3 +11,4 @@ obj-$(CONFIG_LEDS_TRIGGER_DEFAULT_ON)	+= ledtrig-default-on.o
  obj-$(CONFIG_LEDS_TRIGGER_TRANSIENT)	+= ledtrig-transient.o
  obj-$(CONFIG_LEDS_TRIGGER_CAMERA)	+= ledtrig-camera.o
  obj-$(CONFIG_LEDS_TRIGGER_PANIC)	+= ledtrig-panic.o
 +obj-$(CONFIG_LEDS_TRIGGER_NETDEV)	+= ledtrig-netdev.o
+diff --git a/drivers/leds/trigger/ledtrig-netdev.c b/drivers/leds/trigger/ledtrig-netdev.c
+new file mode 100644
+index 00000000..6df4781a
 --- /dev/null
 +++ b/drivers/leds/trigger/ledtrig-netdev.c
 @@ -0,0 +1,496 @@

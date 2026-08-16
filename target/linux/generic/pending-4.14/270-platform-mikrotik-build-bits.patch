@@ -1,19 +1,5 @@
-From c2deb5ef01a0ef09088832744cbace9e239a6ee0 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Thibaut=20VAR=C3=88NE?= <hacks@slashdirt.org>
-Date: Tue, 24 Mar 2020 22:11:50 +0100
-Subject: [PATCH] generic: platform/mikrotik build bits (4.14)
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-This patch adds platform/mikrotik kernel build bits
-
-Signed-off-by: Thibaut VARÈNE <hacks@slashdirt.org>
----
- drivers/platform/Kconfig  | 2 ++
- drivers/platform/Makefile | 1 +
- 2 files changed, 3 insertions(+)
-
+diff --git a/drivers/platform/Kconfig b/drivers/platform/Kconfig
+index c11db8bc..0283f0b4 100644
 --- a/drivers/platform/Kconfig
 +++ b/drivers/platform/Kconfig
 @@ -8,3 +8,5 @@ endif
@@ -22,6 +8,8 @@ Signed-off-by: Thibaut VARÈNE <hacks@slashdirt.org>
  source "drivers/platform/chrome/Kconfig"
 +
 +source "drivers/platform/mikrotik/Kconfig"
+diff --git a/drivers/platform/Makefile b/drivers/platform/Makefile
+index d3a66302..ad290c30 100644
 --- a/drivers/platform/Makefile
 +++ b/drivers/platform/Makefile
 @@ -8,3 +8,4 @@ obj-$(CONFIG_MIPS)		+= mips/

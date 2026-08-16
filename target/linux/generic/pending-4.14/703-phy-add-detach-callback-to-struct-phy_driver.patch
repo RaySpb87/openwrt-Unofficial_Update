@@ -1,17 +1,8 @@
-From: Gabor Juhos <juhosg@openwrt.org>
-Subject: generic: add detach callback to struct phy_driver
-
-lede-commit: fe61fc2d7d0b3fb348b502f68f98243b3ddf5867
-
-Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
----
- drivers/net/phy/phy_device.c | 3 +++
- include/linux/phy.h          | 6 ++++++
- 2 files changed, 9 insertions(+)
-
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 5d557a00..142952ba 100644
 --- a/drivers/net/phy/phy_device.c
 +++ b/drivers/net/phy/phy_device.c
-@@ -1110,6 +1110,9 @@ void phy_detach(struct phy_device *phyde
+@@ -1111,6 +1111,9 @@ void phy_detach(struct phy_device *phydev)
  	struct module *ndev_owner = dev->dev.parent->driver->owner;
  	struct mii_bus *bus;
  
@@ -21,6 +12,8 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  	if (phydev->sysfs_links) {
  		sysfs_remove_link(&dev->dev.kobj, "phydev");
  		sysfs_remove_link(&phydev->mdio.dev.kobj, "attached_dev");
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 8b685070..87e70092 100644
 --- a/include/linux/phy.h
 +++ b/include/linux/phy.h
 @@ -561,6 +561,12 @@ struct phy_driver {

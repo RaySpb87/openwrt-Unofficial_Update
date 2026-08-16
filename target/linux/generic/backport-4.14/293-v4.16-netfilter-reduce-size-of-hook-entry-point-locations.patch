@@ -1,43 +1,8 @@
-From b0f38338aef2dae5ade3c16acf713737e3b15a73 Mon Sep 17 00:00:00 2001
-From: Florian Westphal <fw@strlen.de>
-Date: Sun, 3 Dec 2017 00:58:47 +0100
-Subject: [PATCH 05/11] netfilter: reduce size of hook entry point locations
-
-struct net contains:
-
-struct nf_hook_entries __rcu *hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
-
-which store the hook entry point locations for the various protocol
-families and the hooks.
-
-Using array results in compact c code when doing accesses, i.e.
-  x = rcu_dereference(net->nf.hooks[pf][hook]);
-
-but its also wasting a lot of memory, as most families are
-not used.
-
-So split the array into those families that are used, which
-are only 5 (instead of 13).  In most cases, the 'pf' argument is
-constant, i.e. gcc removes switch statement.
-
-struct net before:
- /* size: 5184, cachelines: 81, members: 46 */
-after:
- /* size: 4672, cachelines: 73, members: 46 */
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/linux/netfilter.h       | 24 ++++++++++++++++++++++--
- include/net/netns/netfilter.h   |  6 +++++-
- net/bridge/br_netfilter_hooks.c |  2 +-
- net/netfilter/core.c            | 38 ++++++++++++++++++++++++++++++--------
- net/netfilter/nf_queue.c        | 21 +++++++++++++++++++--
- 5 files changed, 77 insertions(+), 14 deletions(-)
-
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 792f6d53..9dcbcdfa 100644
 --- a/include/linux/netfilter.h
 +++ b/include/linux/netfilter.h
-@@ -195,7 +195,7 @@ static inline int nf_hook(u_int8_t pf, u
+@@ -195,7 +195,7 @@ static inline int nf_hook(u_int8_t pf, unsigned int hook, struct net *net,
  			  struct net_device *indev, struct net_device *outdev,
  			  int (*okfn)(struct net *, struct sock *, struct sk_buff *))
  {
@@ -46,7 +11,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	int ret = 1;
  
  #ifdef HAVE_JUMP_LABEL
-@@ -206,7 +206,27 @@ static inline int nf_hook(u_int8_t pf, u
+@@ -206,7 +206,27 @@ static inline int nf_hook(u_int8_t pf, unsigned int hook, struct net *net,
  #endif
  
  	rcu_read_lock();
@@ -75,6 +40,8 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	if (hook_head) {
  		struct nf_hook_state state;
  
+diff --git a/include/net/netns/netfilter.h b/include/net/netns/netfilter.h
+index cc00af2a..b39c563c 100644
 --- a/include/net/netns/netfilter.h
 +++ b/include/net/netns/netfilter.h
 @@ -17,7 +17,11 @@ struct netns_nf {
@@ -90,9 +57,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
  	bool			defrag_ipv4;
  #endif
+diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
+index d229bfaa..30fe0897 100644
 --- a/net/bridge/br_netfilter_hooks.c
 +++ b/net/bridge/br_netfilter_hooks.c
-@@ -993,7 +993,7 @@ int br_nf_hook_thresh(unsigned int hook,
+@@ -995,7 +995,7 @@ int br_nf_hook_thresh(unsigned int hook, struct net *net,
  	unsigned int i;
  	int ret;
  
@@ -101,9 +70,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	if (!e)
  		return okfn(net, sk, skb);
  
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index bc862e7f..e626fa18 100644
 --- a/net/netfilter/core.c
 +++ b/net/netfilter/core.c
-@@ -264,8 +264,23 @@ out_assign:
+@@ -264,8 +264,23 @@ static void *__nf_hook_entries_try_shrink(struct nf_hook_entries __rcu **pp)
  
  static struct nf_hook_entries __rcu **nf_hook_entry_head(struct net *net, const struct nf_hook_ops *reg)
  {
@@ -129,7 +100,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  
  #ifdef CONFIG_NETFILTER_INGRESS
  	if (reg->hooknum == NF_NETDEV_INGRESS) {
-@@ -535,14 +550,21 @@ void (*nf_nat_decode_session_hook)(struc
+@@ -535,14 +550,21 @@ void (*nf_nat_decode_session_hook)(struct sk_buff *, struct flowi *);
  EXPORT_SYMBOL(nf_nat_decode_session_hook);
  #endif
  
@@ -157,9 +128,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  
  #ifdef CONFIG_PROC_FS
  	net->nf.proc_netfilter = proc_net_mkdir(net, "netfilter",
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index 3e351bc2..3f8ab3fe 100644
 --- a/net/netfilter/nf_queue.c
 +++ b/net/netfilter/nf_queue.c
-@@ -223,6 +223,23 @@ repeat:
+@@ -221,6 +221,23 @@ static unsigned int nf_iterate(struct sk_buff *skb,
  	return NF_ACCEPT;
  }
  
@@ -183,7 +156,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  /* Caller must hold rcu read-side lock */
  void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
  {
-@@ -238,12 +255,12 @@ void nf_reinject(struct nf_queue_entry *
+@@ -236,12 +253,12 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
  	net = entry->state.net;
  	pf = entry->state.pf;
  

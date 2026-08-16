@@ -1,17 +1,8 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue, 19 Dec 2017 13:40:22 +0100
-Subject: [PATCH] netfilter: nf_tables: remove struct nft_af_info parameter in
- nf_tables_chain_type_lookup()
-
-Pass family number instead, this comes in preparation for the removal of
-struct nft_af_info.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index ce313a62..82ac4b5a 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
-@@ -467,7 +467,7 @@ static inline u64 nf_tables_alloc_handle
+@@ -490,7 +490,7 @@ static inline u64 nf_tables_alloc_handle(struct nft_table *table)
  static const struct nf_chain_type *chain_type[NFPROTO_NUMPROTO][NFT_CHAIN_T_MAX];
  
  static const struct nf_chain_type *
@@ -20,7 +11,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  {
  	int i;
  
-@@ -480,22 +480,20 @@ __nf_tables_chain_type_lookup(int family
+@@ -503,22 +503,20 @@ __nf_tables_chain_type_lookup(int family, const struct nlattr *nla)
  }
  
  static const struct nf_chain_type *
@@ -47,7 +38,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  		if (type != NULL)
  			return ERR_PTR(-EAGAIN);
  	}
-@@ -1371,8 +1369,8 @@ static int nft_chain_parse_hook(struct n
+@@ -1394,8 +1392,8 @@ static int nft_chain_parse_hook(struct net *net,
  
  	type = chain_type[afi->family][NFT_CHAIN_T_DEFAULT];
  	if (nla[NFTA_CHAIN_TYPE]) {

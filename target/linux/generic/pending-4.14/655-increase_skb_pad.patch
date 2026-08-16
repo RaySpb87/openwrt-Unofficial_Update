@@ -1,15 +1,8 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: kernel: add a few patches for avoiding unnecessary skb reallocations - significantly improves ethernet<->wireless performance
-
-lede-commit: 6f89cffc9add6939d44a6b54cf9a5e77849aa7fd
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- include/linux/skbuff.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 2da9e390..15026446 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -2524,7 +2524,7 @@ static inline int pskb_network_may_pull(
+@@ -2525,7 +2525,7 @@ static inline int pskb_network_may_pull(struct sk_buff *skb, unsigned int len)
   * NET_IP_ALIGN(2) + ethernet_header(14) + IP_header(20/40) + ports(8)
   */
  #ifndef NET_SKB_PAD

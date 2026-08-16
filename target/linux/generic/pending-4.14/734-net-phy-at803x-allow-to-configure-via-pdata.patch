@@ -1,16 +1,5 @@
-From: Gabor Juhos <juhosg@openwrt.org>
-Subject: net: phy: allow to configure AR803x PHYs via platform data
-
-Add a patch for the at803x phy driver, in order to be able
-to configure some register settings via platform data.
-
-Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
----
- drivers/net/phy/at803x.c                 | 56 ++++++++++++++++++++++++++++++++
- include/linux/platform_data/phy-at803x.h | 11 +++++++
- 2 files changed, 67 insertions(+)
- create mode 100644 include/linux/platform_data/phy-at803x.h
-
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+index b3ed39c2..af910284 100644
 --- a/drivers/net/phy/at803x.c
 +++ b/drivers/net/phy/at803x.c
 @@ -12,12 +12,14 @@
@@ -48,7 +37,7 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  };
  
  struct at803x_context {
-@@ -274,8 +282,16 @@ does_not_require_reset_workaround:
+@@ -274,8 +282,16 @@ static int at803x_probe(struct phy_device *phydev)
  	return 0;
  }
  
@@ -65,7 +54,7 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  	int ret;
  
  	ret = genphy_config_init(phydev);
-@@ -296,6 +312,26 @@ static int at803x_config_init(struct phy
+@@ -296,6 +312,26 @@ static int at803x_config_init(struct phy_device *phydev)
  			return ret;
  	}
  
@@ -92,7 +81,7 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  	return 0;
  }
  
-@@ -333,6 +369,8 @@ static int at803x_config_intr(struct phy
+@@ -333,6 +369,8 @@ static int at803x_config_intr(struct phy_device *phydev)
  static void at803x_link_change_notify(struct phy_device *phydev)
  {
  	struct at803x_priv *priv = phydev->priv;
@@ -101,7 +90,7 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  
  	/*
  	 * Conduct a hardware reset for AT8030/2 every time a link loss is
-@@ -361,6 +399,24 @@ static void at803x_link_change_notify(st
+@@ -361,6 +399,24 @@ static void at803x_link_change_notify(struct phy_device *phydev)
  	} else {
  		priv->phy_reset = false;
  	}
@@ -126,6 +115,9 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  }
  
  static int at803x_aneg_done(struct phy_device *phydev)
+diff --git a/include/linux/platform_data/phy-at803x.h b/include/linux/platform_data/phy-at803x.h
+new file mode 100644
+index 00000000..a5df74b4
 --- /dev/null
 +++ b/include/linux/platform_data/phy-at803x.h
 @@ -0,0 +1,11 @@

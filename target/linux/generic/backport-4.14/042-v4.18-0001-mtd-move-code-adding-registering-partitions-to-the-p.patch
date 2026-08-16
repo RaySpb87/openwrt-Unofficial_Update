@@ -1,35 +1,8 @@
-From 5ac67ce36cfe38b4c104a42ce52c5c8d526f1c95 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
-Date: Tue, 27 Mar 2018 22:35:41 +0200
-Subject: [PATCH] mtd: move code adding (registering) partitions to the
- parse_mtd_partitions()
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-This commit slightly simplifies the code. Every parse_mtd_partitions()
-caller (out of two existing ones) had to add partitions & cleanup parser
-on its own. This moves that responsibility into the function.
-
-That change also allows dropping struct mtd_partitions argument.
-
-There is one minor behavior change caused by this cleanup. If
-parse_mtd_partitions() fails to add partitions (add_mtd_partitions()
-return an error) then mtd_device_parse_register() will still try to
-add (register) fallback partitions. It's a real corner case affecting
-one of uncommon error paths and shouldn't cause any harm.
-
-Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
-Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
----
- drivers/mtd/mtdcore.c | 14 ++++----------
- drivers/mtd/mtdcore.h |  1 -
- drivers/mtd/mtdpart.c | 44 ++++++++++++++++----------------------------
- 3 files changed, 20 insertions(+), 39 deletions(-)
-
+diff --git a/drivers/mtd/mtdcore.c b/drivers/mtd/mtdcore.c
+index 2b9653b4..78345f3c 100644
 --- a/drivers/mtd/mtdcore.c
 +++ b/drivers/mtd/mtdcore.c
-@@ -686,7 +686,6 @@ int mtd_device_parse_register(struct mtd
+@@ -688,7 +688,6 @@ int mtd_device_parse_register(struct mtd_info *mtd, const char * const *types,
  			      const struct mtd_partition *parts,
  			      int nr_parts)
  {
@@ -37,7 +10,7 @@ Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
  	int ret;
  
  	mtd_set_dev_defaults(mtd);
-@@ -698,13 +697,10 @@ int mtd_device_parse_register(struct mtd
+@@ -700,13 +699,10 @@ int mtd_device_parse_register(struct mtd_info *mtd, const char * const *types,
  	}
  
  	/* Prefer parsed partitions over driver-provided fallback */
@@ -55,7 +28,7 @@ Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
  		ret = add_mtd_partitions(mtd, parts, nr_parts);
  	else if (!device_is_registered(&mtd->dev))
  		ret = add_mtd_device(mtd);
-@@ -730,8 +726,6 @@ int mtd_device_parse_register(struct mtd
+@@ -732,8 +728,6 @@ int mtd_device_parse_register(struct mtd_info *mtd, const char * const *types,
  	}
  
  out:
@@ -64,9 +37,11 @@ Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
  	if (ret && device_is_registered(&mtd->dev))
  		del_mtd_device(mtd);
  
+diff --git a/drivers/mtd/mtdcore.h b/drivers/mtd/mtdcore.h
+index 24480b75..b31c8680 100644
 --- a/drivers/mtd/mtdcore.h
 +++ b/drivers/mtd/mtdcore.h
-@@ -15,7 +15,6 @@ int del_mtd_partitions(struct mtd_info *
+@@ -15,7 +15,6 @@ int del_mtd_partitions(struct mtd_info *);
  struct mtd_partitions;
  
  int parse_mtd_partitions(struct mtd_info *master, const char * const *types,
@@ -74,9 +49,11 @@ Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
  			 struct mtd_part_parser_data *data);
  
  void mtd_part_parser_cleanup(struct mtd_partitions *parts);
+diff --git a/drivers/mtd/mtdpart.c b/drivers/mtd/mtdpart.c
+index c25cbd8a..fe9ae0ff 100644
 --- a/drivers/mtd/mtdpart.c
 +++ b/drivers/mtd/mtdpart.c
-@@ -383,20 +383,7 @@ static inline void free_partition(struct
+@@ -383,20 +383,7 @@ static inline void free_partition(struct mtd_part *p)
   */
  static int mtd_parse_part(struct mtd_part *slave, const char *const *types)
  {
@@ -98,7 +75,7 @@ Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
  }
  
  static struct mtd_part *allocate_partition(struct mtd_info *parent,
-@@ -1006,30 +993,27 @@ static int mtd_part_of_parse(struct mtd_
+@@ -1006,30 +993,27 @@ static int mtd_part_of_parse(struct mtd_info *master,
  }
  
  /**
@@ -136,7 +113,7 @@ Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
  	struct mtd_part_parser *parser;
  	int ret, err = 0;
  
-@@ -1043,7 +1027,7 @@ int parse_mtd_partitions(struct mtd_info
+@@ -1043,7 +1027,7 @@ int parse_mtd_partitions(struct mtd_info *master, const char *const *types,
  		 * handled in a separated function.
  		 */
  		if (!strcmp(*types, "ofpart")) {
@@ -145,7 +122,7 @@ Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
  		} else {
  			pr_debug("%s: parsing partitions %s\n", master->name,
  				 *types);
-@@ -1054,13 +1038,17 @@ int parse_mtd_partitions(struct mtd_info
+@@ -1054,13 +1038,17 @@ int parse_mtd_partitions(struct mtd_info *master, const char *const *types,
  				parser ? parser->name : NULL);
  			if (!parser)
  				continue;

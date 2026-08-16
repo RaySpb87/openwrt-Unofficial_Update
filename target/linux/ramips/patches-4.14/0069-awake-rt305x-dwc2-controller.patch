@@ -1,6 +1,8 @@
+diff --git a/drivers/usb/dwc2/platform.c b/drivers/usb/dwc2/platform.c
+index 7a52dbc9..c1a4998b 100644
 --- a/drivers/usb/dwc2/platform.c
 +++ b/drivers/usb/dwc2/platform.c
-@@ -407,6 +407,12 @@ static int dwc2_driver_probe(struct plat
+@@ -407,6 +407,12 @@ static int dwc2_driver_probe(struct platform_device *dev)
  	if (retval)
  		return retval;
  

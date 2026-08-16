@@ -1,17 +1,5 @@
-From: Steven Barth <steven@midlink.org>
-Subject: Add support for MAP-E FMRs (mesh mode)
-
-MAP-E FMRs (draft-ietf-softwire-map-10) are rules for IPv4-communication
-between MAP CEs (mesh mode) without the need to forward such data to a
-border relay. This is similar to how 6rd works but for IPv4 over IPv6.
-
-Signed-off-by: Steven Barth <cyrus@openwrt.org>
----
- include/net/ip6_tunnel.h       |  13 ++
- include/uapi/linux/if_tunnel.h |  13 ++
- net/ipv6/ip6_tunnel.c          | 276 +++++++++++++++++++++++++++++++++++++++--
- 3 files changed, 291 insertions(+), 11 deletions(-)
-
+diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
+index 3b0e3cde..4cc5005d 100644
 --- a/include/net/ip6_tunnel.h
 +++ b/include/net/ip6_tunnel.h
 @@ -18,6 +18,18 @@
@@ -41,6 +29,8 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  
  	__be16			i_flags;
  	__be16			o_flags;
+diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
+index 383b850a..49b4e437 100644
 --- a/include/uapi/linux/if_tunnel.h
 +++ b/include/uapi/linux/if_tunnel.h
 @@ -77,10 +77,23 @@ enum {
@@ -67,6 +57,8 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  enum tunnel_encap_types {
  	TUNNEL_ENCAP_NONE,
  	TUNNEL_ENCAP_FOU,
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index d59bf0da..19728876 100644
 --- a/net/ipv6/ip6_tunnel.c
 +++ b/net/ipv6/ip6_tunnel.c
 @@ -16,6 +16,8 @@
@@ -90,7 +82,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  
  	return hash_32(hash, IP6_TUNNEL_HASH_SIZE_SHIFT);
  }
-@@ -141,20 +143,29 @@ static struct net_device_stats *ip6_get_
+@@ -141,20 +143,29 @@ static struct net_device_stats *ip6_get_stats(struct net_device *dev)
  static struct ip6_tnl *
  ip6_tnl_lookup(struct net *net, const struct in6_addr *remote, const struct in6_addr *local)
  {
@@ -125,7 +117,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  	for_each_ip6_tunnel_rcu(ip6n->tnls_r_l[hash]) {
  		if (ipv6_addr_equal(local, &t->parms.laddr) &&
  		    ipv6_addr_any(&t->parms.raddr) &&
-@@ -162,7 +173,7 @@ ip6_tnl_lookup(struct net *net, const st
+@@ -162,7 +173,7 @@ ip6_tnl_lookup(struct net *net, const struct in6_addr *remote, const struct in6_
  			return t;
  	}
  
@@ -134,7 +126,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  	for_each_ip6_tunnel_rcu(ip6n->tnls_r_l[hash]) {
  		if (ipv6_addr_equal(remote, &t->parms.raddr) &&
  		    ipv6_addr_any(&t->parms.laddr) &&
-@@ -202,7 +213,7 @@ ip6_tnl_bucket(struct ip6_tnl_net *ip6n,
+@@ -202,7 +213,7 @@ ip6_tnl_bucket(struct ip6_tnl_net *ip6n, const struct __ip6_tnl_parm *p)
  
  	if (!ipv6_addr_any(remote) || !ipv6_addr_any(local)) {
  		prio = 1;
@@ -143,7 +135,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  	}
  	return &ip6n->tnls[prio][h];
  }
-@@ -382,6 +393,12 @@ ip6_tnl_dev_uninit(struct net_device *de
+@@ -382,6 +393,12 @@ ip6_tnl_dev_uninit(struct net_device *dev)
  	struct net *net = t->net;
  	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
  
@@ -264,7 +256,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  static int __ip6_tnl_rcv(struct ip6_tnl *tunnel, struct sk_buff *skb,
  			 const struct tnl_ptk_info *tpi,
  			 struct metadata_dst *tun_dst,
-@@ -830,6 +948,27 @@ static int __ip6_tnl_rcv(struct ip6_tnl
+@@ -830,6 +948,27 @@ static int __ip6_tnl_rcv(struct ip6_tnl *tunnel, struct sk_buff *skb,
  	skb_reset_network_header(skb);
  	memset(skb->cb, 0, sizeof(struct inet6_skb_parm));
  
@@ -292,7 +284,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  	__skb_tunnel_rx(skb, tunnel->dev, tunnel->net);
  
  	err = dscp_ecn_decapsulate(tunnel, ipv6h, skb);
-@@ -970,6 +1109,7 @@ static void init_tel_txopt(struct ipv6_t
+@@ -970,6 +1109,7 @@ static void init_tel_txopt(struct ipv6_tel_txoption *opt, __u8 encap_limit)
  	opt->ops.opt_nflen = 8;
  }
  
@@ -300,7 +292,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  /**
   * ip6_tnl_addr_conflict - compare packet addresses to tunnel's own
   *   @t: the outgoing tunnel device
-@@ -1312,6 +1452,7 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, str
+@@ -1312,6 +1452,7 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
  {
  	struct ip6_tnl *t = netdev_priv(dev);
  	struct ipv6hdr *ipv6h;
@@ -308,7 +300,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  	int encap_limit = -1;
  	__u16 offset;
  	struct flowi6 fl6;
-@@ -1379,6 +1520,18 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, str
+@@ -1379,6 +1520,18 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
  	fl6.flowi6_uid = sock_net_uid(dev_net(dev), NULL);
  	dsfield = INET_ECN_encapsulate(dsfield, ipv6_get_dsfield(ipv6h));
  
@@ -327,7 +319,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  	if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP6))
  		return -1;
  
-@@ -1505,6 +1658,14 @@ ip6_tnl_change(struct ip6_tnl *t, const
+@@ -1507,6 +1660,14 @@ ip6_tnl_change(struct ip6_tnl *t, const struct __ip6_tnl_parm *p)
  	t->parms.link = p->link;
  	t->parms.proto = p->proto;
  	t->parms.fwmark = p->fwmark;
@@ -342,7 +334,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  	dst_cache_reset(&t->dst_cache);
  	ip6_tnl_link_config(t);
  	return 0;
-@@ -1543,6 +1704,7 @@ ip6_tnl_parm_from_user(struct __ip6_tnl_
+@@ -1545,6 +1706,7 @@ ip6_tnl_parm_from_user(struct __ip6_tnl_parm *p, const struct ip6_tnl_parm *u)
  	p->flowinfo = u->flowinfo;
  	p->link = u->link;
  	p->proto = u->proto;
@@ -350,7 +342,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  	memcpy(p->name, u->name, sizeof(u->name));
  }
  
-@@ -1927,6 +2089,15 @@ static int ip6_tnl_validate(struct nlatt
+@@ -1929,6 +2091,15 @@ static int ip6_tnl_validate(struct nlattr *tb[], struct nlattr *data[],
  	return 0;
  }
  
@@ -366,7 +358,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  static void ip6_tnl_netlink_parms(struct nlattr *data[],
  				  struct __ip6_tnl_parm *parms)
  {
-@@ -1964,6 +2135,46 @@ static void ip6_tnl_netlink_parms(struct
+@@ -1966,6 +2137,46 @@ static void ip6_tnl_netlink_parms(struct nlattr *data[],
  
  	if (data[IFLA_IPTUN_FWMARK])
  		parms->fwmark = nla_get_u32(data[IFLA_IPTUN_FWMARK]);
@@ -413,7 +405,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  }
  
  static bool ip6_tnl_netlink_encap_parms(struct nlattr *data[],
-@@ -2079,6 +2290,12 @@ static void ip6_tnl_dellink(struct net_d
+@@ -2081,6 +2292,12 @@ static void ip6_tnl_dellink(struct net_device *dev, struct list_head *head)
  
  static size_t ip6_tnl_get_size(const struct net_device *dev)
  {
@@ -426,7 +418,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  	return
  		/* IFLA_IPTUN_LINK */
  		nla_total_size(4) +
-@@ -2108,6 +2325,24 @@ static size_t ip6_tnl_get_size(const str
+@@ -2110,6 +2327,24 @@ static size_t ip6_tnl_get_size(const struct net_device *dev)
  		nla_total_size(0) +
  		/* IFLA_IPTUN_FWMARK */
  		nla_total_size(4) +
@@ -451,7 +443,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  		0;
  }
  
-@@ -2115,6 +2350,9 @@ static int ip6_tnl_fill_info(struct sk_b
+@@ -2117,6 +2352,9 @@ static int ip6_tnl_fill_info(struct sk_buff *skb, const struct net_device *dev)
  {
  	struct ip6_tnl *tunnel = netdev_priv(dev);
  	struct __ip6_tnl_parm *parm = &tunnel->parms;
@@ -461,7 +453,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  
  	if (nla_put_u32(skb, IFLA_IPTUN_LINK, parm->link) ||
  	    nla_put_in6_addr(skb, IFLA_IPTUN_LOCAL, &parm->laddr) ||
-@@ -2124,9 +2362,27 @@ static int ip6_tnl_fill_info(struct sk_b
+@@ -2126,9 +2364,27 @@ static int ip6_tnl_fill_info(struct sk_buff *skb, const struct net_device *dev)
  	    nla_put_be32(skb, IFLA_IPTUN_FLOWINFO, parm->flowinfo) ||
  	    nla_put_u32(skb, IFLA_IPTUN_FLAGS, parm->flags) ||
  	    nla_put_u8(skb, IFLA_IPTUN_PROTO, parm->proto) ||
@@ -490,7 +482,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  	if (nla_put_u16(skb, IFLA_IPTUN_ENCAP_TYPE, tunnel->encap.type) ||
  	    nla_put_be16(skb, IFLA_IPTUN_ENCAP_SPORT, tunnel->encap.sport) ||
  	    nla_put_be16(skb, IFLA_IPTUN_ENCAP_DPORT, tunnel->encap.dport) ||
-@@ -2166,6 +2422,7 @@ static const struct nla_policy ip6_tnl_p
+@@ -2168,6 +2424,7 @@ static const struct nla_policy ip6_tnl_policy[IFLA_IPTUN_MAX + 1] = {
  	[IFLA_IPTUN_ENCAP_DPORT]	= { .type = NLA_U16 },
  	[IFLA_IPTUN_COLLECT_METADATA]	= { .type = NLA_FLAG },
  	[IFLA_IPTUN_FWMARK]		= { .type = NLA_U32 },

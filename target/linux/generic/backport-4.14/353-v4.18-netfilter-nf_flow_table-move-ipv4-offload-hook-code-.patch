@@ -1,15 +1,5 @@
-From: Felix Fietkau <nbd@nbd.name>
-Date: Sat, 17 Feb 2018 11:49:44 +0100
-Subject: [PATCH] netfilter: nf_flow_table: move ipv4 offload hook code to
- nf_flow_table
-
-Allows some minor code sharing with the ipv6 hook code and is also
-useful as preparation for adding iptables support for offload
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- create mode 100644 net/netfilter/nf_flow_table_ip.c
-
+diff --git a/net/ipv4/netfilter/nf_flow_table_ipv4.c b/net/ipv4/netfilter/nf_flow_table_ipv4.c
+index e17ef57b..b6e43ff0 100644
 --- a/net/ipv4/netfilter/nf_flow_table_ipv4.c
 +++ b/net/ipv4/netfilter/nf_flow_table_ipv4.c
 @@ -2,248 +2,8 @@
@@ -261,9 +251,11 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  static struct nf_flowtable_type flowtable_ipv4 = {
  	.family		= NFPROTO_IPV4,
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 592cb996..1e5fa1ce 100644
 --- a/net/netfilter/Makefile
 +++ b/net/netfilter/Makefile
-@@ -113,7 +113,7 @@ obj-$(CONFIG_NFT_FWD_NETDEV)	+= nft_fwd_
+@@ -113,7 +113,7 @@ obj-$(CONFIG_NFT_FWD_NETDEV)	+= nft_fwd_netdev.o
  
  # flow table infrastructure
  obj-$(CONFIG_NF_FLOW_TABLE)	+= nf_flow_table.o
@@ -272,6 +264,9 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  
  obj-$(CONFIG_NF_FLOW_TABLE_INET) += nf_flow_table_inet.o
  
+diff --git a/net/netfilter/nf_flow_table_ip.c b/net/netfilter/nf_flow_table_ip.c
+new file mode 100644
+index 00000000..7c97126a
 --- /dev/null
 +++ b/net/netfilter/nf_flow_table_ip.c
 @@ -0,0 +1,245 @@

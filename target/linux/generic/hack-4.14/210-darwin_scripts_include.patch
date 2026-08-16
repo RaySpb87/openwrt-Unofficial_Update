@@ -1,21 +1,8 @@
-From db7c30dcd9a0391bf13b62c9f91e144d762ef43a Mon Sep 17 00:00:00 2001
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 7 Jul 2017 17:00:49 +0200
-Subject: Add an OSX specific patch to make the kernel be compiled
-
-lede-commit: 3fc2a24f0422b2f55f9ed43f116db3111f700526
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- scripts/kconfig/Makefile   |    3 +
- scripts/mod/elf.h          | 3007 ++++++++++++++++++++++++++++++++++++++++++++
- scripts/mod/mk_elfconfig.c |    4 +
- scripts/mod/modpost.h      |    4 +
- 4 files changed, 3018 insertions(+)
- create mode 100644 scripts/mod/elf.h
-
+diff --git a/scripts/kconfig/Makefile b/scripts/kconfig/Makefile
+index 297c1bf3..563daa0e 100644
 --- a/scripts/kconfig/Makefile
 +++ b/scripts/kconfig/Makefile
-@@ -164,6 +164,9 @@ check-lxdialog  := $(srctree)/$(src)/lxd
+@@ -164,6 +164,9 @@ check-lxdialog  := $(srctree)/$(src)/lxdialog/check-lxdialog.sh
  # we really need to do so. (Do not call gcc as part of make mrproper)
  HOST_EXTRACFLAGS += $(shell $(CONFIG_SHELL) $(check-lxdialog) -ccflags) \
                      -DLOCALE
@@ -25,6 +12,9 @@ Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
  
  # ===========================================================================
  # Shared Makefile for the various kconfig executables:
+diff --git a/scripts/mod/elf.h b/scripts/mod/elf.h
+new file mode 100644
+index 00000000..036a1763
 --- /dev/null
 +++ b/scripts/mod/elf.h
 @@ -0,0 +1,3007 @@
@@ -3035,6 +3025,8 @@ Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 +#define R_TILEGX_NUM		130
 +
 +#endif	/* elf.h */
+diff --git a/scripts/mod/mk_elfconfig.c b/scripts/mod/mk_elfconfig.c
+index 680eade8..63098815 100644
 --- a/scripts/mod/mk_elfconfig.c
 +++ b/scripts/mod/mk_elfconfig.c
 @@ -2,7 +2,11 @@
@@ -3049,6 +3041,8 @@ Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
  
  int
  main(int argc, char **argv)
+diff --git a/scripts/mod/modpost.h b/scripts/mod/modpost.h
+index 8453d6ac..be78bf83 100644
 --- a/scripts/mod/modpost.h
 +++ b/scripts/mod/modpost.h
 @@ -8,7 +8,11 @@

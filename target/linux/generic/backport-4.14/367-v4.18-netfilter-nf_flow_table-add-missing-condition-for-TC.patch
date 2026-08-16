@@ -1,13 +1,5 @@
-From: Felix Fietkau <nbd@nbd.name>
-Date: Fri, 23 Mar 2018 17:15:22 +0100
-Subject: [PATCH] netfilter: nf_flow_table: add missing condition for TCP state
- check
-
-Avoid looking at unrelated fields in UDP packets
-
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
-
+diff --git a/net/netfilter/nf_flow_table_ip.c b/net/netfilter/nf_flow_table_ip.c
+index 6d9d4b05..9d5bb1ad 100644
 --- a/net/netfilter/nf_flow_table_ip.c
 +++ b/net/netfilter/nf_flow_table_ip.c
 @@ -15,11 +15,14 @@
@@ -27,7 +19,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	if (!pskb_may_pull(skb, thoff + sizeof(*tcph)))
  		return -1;
  
-@@ -248,7 +251,7 @@ nf_flow_offload_ip_hook(void *priv, stru
+@@ -248,7 +251,7 @@ nf_flow_offload_ip_hook(void *priv, struct sk_buff *skb,
  		return NF_DROP;
  
  	thoff = ip_hdr(skb)->ihl * 4;
@@ -36,7 +28,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  		return NF_ACCEPT;
  
  	if (flow->flags & (FLOW_OFFLOAD_SNAT | FLOW_OFFLOAD_DNAT) &&
-@@ -460,7 +463,8 @@ nf_flow_offload_ipv6_hook(void *priv, st
+@@ -460,7 +463,8 @@ nf_flow_offload_ipv6_hook(void *priv, struct sk_buff *skb,
  	if (unlikely(nf_flow_exceeds_mtu(skb, flow->tuplehash[dir].tuple.mtu)))
  		return NF_ACCEPT;
  

@@ -1,14 +1,5 @@
-From: Yousong Zhou <yszhou4tech@gmail.com>
-Subject: MIPS: kexec: Accept command line parameters from userspace.
-
-Signed-off-by: Yousong Zhou <yszhou4tech@gmail.com>
----
- arch/mips/kernel/machine_kexec.c   |  153 +++++++++++++++++++++++++++++++-----
- arch/mips/kernel/machine_kexec.h   |   20 +++++
- arch/mips/kernel/relocate_kernel.S |   21 +++--
- 3 files changed, 167 insertions(+), 27 deletions(-)
- create mode 100644 arch/mips/kernel/machine_kexec.h
-
+diff --git a/arch/mips/kernel/machine_kexec.c b/arch/mips/kernel/machine_kexec.c
+index 4b3726e4..cc880464 100644
 --- a/arch/mips/kernel/machine_kexec.c
 +++ b/arch/mips/kernel/machine_kexec.c
 @@ -10,14 +10,11 @@
@@ -29,7 +20,7 @@ Signed-off-by: Yousong Zhou <yszhou4tech@gmail.com>
  
  int (*_machine_kexec_prepare)(struct kimage *) = NULL;
  void (*_machine_kexec_shutdown)(void) = NULL;
-@@ -28,6 +25,99 @@ atomic_t kexec_ready_to_reboot = ATOMIC_
+@@ -28,6 +25,99 @@ atomic_t kexec_ready_to_reboot = ATOMIC_INIT(0);
  void (*_crash_smp_send_stop)(void) = NULL;
  #endif
  
@@ -167,9 +158,7 @@ Signed-off-by: Yousong Zhou <yszhou4tech@gmail.com>
  		kexec_indirection_page = (unsigned long)&image->head;
  	}
 +	pr_info("kexec_indirection_page = %p\n", (void *)kexec_indirection_page);
- 
--	memcpy((void*)reboot_code_buffer, relocate_new_kernel,
--	       relocate_new_kernel_size);
++
 +	pr_info("Where is memcpy: %p\n", memcpy);
 +	pr_info("kexec_relocate_new_kernel = %p, kexec_relocate_new_kernel_end = %p\n",
 +		(void *)kexec_relocate_new_kernel, &kexec_relocate_new_kernel_end);
@@ -177,7 +166,9 @@ Signed-off-by: Yousong Zhou <yszhou4tech@gmail.com>
 +		(void *)kexec_relocate_new_kernel, (void *)reboot_code_buffer);
 +	memcpy((void*)reboot_code_buffer, kexec_relocate_new_kernel,
 +	       KEXEC_RELOCATE_NEW_KERNEL_SIZE);
-+
+ 
+-	memcpy((void*)reboot_code_buffer, relocate_new_kernel,
+-	       relocate_new_kernel_size);
 +	pr_info("Before _print_args().\n");
 +	machine_kexec_print_args();
 +	pr_info("Before eval loop.\n");
@@ -204,6 +195,9 @@ Signed-off-by: Yousong Zhou <yszhou4tech@gmail.com>
  	smp_wmb();
  	atomic_set(&kexec_ready_to_reboot, 1);
  #endif
+diff --git a/arch/mips/kernel/machine_kexec.h b/arch/mips/kernel/machine_kexec.h
+new file mode 100644
+index 00000000..ae0961e2
 --- /dev/null
 +++ b/arch/mips/kernel/machine_kexec.h
 @@ -0,0 +1,20 @@
@@ -227,6 +221,8 @@ Signed-off-by: Yousong Zhou <yszhou4tech@gmail.com>
 +#define KEXEC_MAX_ARGC			(KEXEC_ARGV_SIZE / sizeof(long))
 +
 +#endif
+diff --git a/arch/mips/kernel/relocate_kernel.S b/arch/mips/kernel/relocate_kernel.S
+index c6bbf216..42eff24e 100644
 --- a/arch/mips/kernel/relocate_kernel.S
 +++ b/arch/mips/kernel/relocate_kernel.S
 @@ -12,8 +12,9 @@
@@ -258,15 +254,15 @@ Signed-off-by: Yousong Zhou <yszhou4tech@gmail.com>
 +	EXPORT(kexec_argv_buf)
 +	.skip		KEXEC_COMMAND_LINE_SIZE
 +	.size		kexec_argv_buf, KEXEC_COMMAND_LINE_SIZE
-+
-+kexec_argv:
-+	EXPORT(kexec_argv)
-+	.skip		KEXEC_ARGV_SIZE
-+	.size		kexec_argv, KEXEC_ARGV_SIZE
  
 -relocate_new_kernel_size:
 -	EXPORT(relocate_new_kernel_size)
 -	PTR		relocate_new_kernel_end - relocate_new_kernel
 -	.size		relocate_new_kernel_size, PTRSIZE
++kexec_argv:
++	EXPORT(kexec_argv)
++	.skip		KEXEC_ARGV_SIZE
++	.size		kexec_argv, KEXEC_ARGV_SIZE
++
 +kexec_relocate_new_kernel_end:
 +	EXPORT(kexec_relocate_new_kernel_end)

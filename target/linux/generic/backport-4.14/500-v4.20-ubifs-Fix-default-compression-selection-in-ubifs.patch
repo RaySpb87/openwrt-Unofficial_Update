@@ -1,11 +1,5 @@
-From: Gabor Juhos <juhosg@openwrt.org>
-Subject: fs: ubifs: fix default compression selection in ubifs
-
-Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
----
- fs/ubifs/sb.c | 13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
-
+diff --git a/fs/ubifs/sb.c b/fs/ubifs/sb.c
+index 8c25081a..2d03ee11 100644
 --- a/fs/ubifs/sb.c
 +++ b/fs/ubifs/sb.c
 @@ -63,6 +63,17 @@
@@ -26,7 +20,7 @@ Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
  /**
   * create_default_filesystem - format empty UBI volume.
   * @c: UBIFS file-system description object
-@@ -186,7 +197,7 @@ static int create_default_filesystem(str
+@@ -186,7 +197,7 @@ static int create_default_filesystem(struct ubifs_info *c)
  	if (c->mount_opts.override_compr)
  		sup->default_compr = cpu_to_le16(c->mount_opts.compr_type);
  	else

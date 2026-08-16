@@ -1,24 +1,8 @@
-From: Gabor Juhos <juhosg@openwrt.org>
-Subject: usr: sanitize deps_initramfs list
-
-If any filename in the intramfs dependency
-list contains a colon, that causes a kernel
-build error like this:
-
-/devel/openwrt/build_dir/linux-ar71xx_generic/linux-3.6.6/usr/Makefile:58: *** multiple target patterns.  Stop.
-make[5]: *** [usr] Error 2
-
-Fix it by removing such filenames from the
-deps_initramfs list.
-
-Signed-off-by: Gabor Juhos <juhosg@openwrt.org>
----
- usr/Makefile | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
+diff --git a/usr/Makefile b/usr/Makefile
+index 5f1bc5b2..63101a89 100644
 --- a/usr/Makefile
 +++ b/usr/Makefile
-@@ -42,20 +42,22 @@ ifneq ($(wildcard $(obj)/$(datafile_d_y)
+@@ -42,20 +42,22 @@ ifneq ($(wildcard $(obj)/$(datafile_d_y)),)
  	include $(obj)/$(datafile_d_y)
  endif
  

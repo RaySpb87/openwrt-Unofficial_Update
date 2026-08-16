@@ -1,19 +1,8 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
-Subject: [PATCH] Revert "mtd: nand: Remove unused chip->write_page() hook"
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-This reverts commit f107d7a43923a83d837b3ea3c7b7de58cd014bbd.
-
-OpenWrt's downstream driver mtk_nand2 still uses that callback.
-
-Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
----
-
+diff --git a/drivers/mtd/nand/nand_base.c b/drivers/mtd/nand/nand_base.c
+index e953eca6..eaac5dd8 100644
 --- a/drivers/mtd/nand/nand_base.c
 +++ b/drivers/mtd/nand/nand_base.c
-@@ -2577,7 +2577,7 @@ static int nand_write_page_syndrome(stru
+@@ -2577,7 +2577,7 @@ static int nand_write_page_syndrome(struct mtd_info *mtd,
  }
  
  /**
@@ -22,7 +11,7 @@ Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
   * @mtd: MTD device structure
   * @chip: NAND chip descriptor
   * @offset: address offset within the page
-@@ -2761,9 +2761,9 @@ static int nand_do_write_ops(struct mtd_
+@@ -2761,9 +2761,9 @@ static int nand_do_write_ops(struct mtd_info *mtd, loff_t to,
  			memset(chip->oob_poi, 0xff, mtd->oobsize);
  		}
  
@@ -45,6 +34,8 @@ Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
  	/*
  	 * Check ECC mode, default to software if 3byte/512byte hardware ECC is
  	 * selected and we have 256 byte pagesize fallback to software ECC
+diff --git a/include/linux/mtd/rawnand.h b/include/linux/mtd/rawnand.h
+index e9a791f4..bb98faeb 100644
 --- a/include/linux/mtd/rawnand.h
 +++ b/include/linux/mtd/rawnand.h
 @@ -860,6 +860,7 @@ struct nand_manufacturer_ops {

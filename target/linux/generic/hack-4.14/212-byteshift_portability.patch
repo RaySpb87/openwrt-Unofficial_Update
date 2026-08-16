@@ -1,17 +1,5 @@
-From 48232d3d931c95953ce2ddfe7da7bb164aef6a73 Mon Sep 17 00:00:00 2001
-From: Felix Fietkau <nbd@nbd.name>
-Date: Fri, 7 Jul 2017 17:03:16 +0200
-Subject: linux-3.6: fix portability of some includes files in tools/ used on the host
-
-lede-commit: 6040b1d29ab1f047c5e49b748abcb6a3196add28
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- tools/include/tools/be_byteshift.h |  4 ++++
- tools/include/tools/le_byteshift.h |  4 ++++
- tools/include/tools/linux_types.h  | 22 ++++++++++++++++++++++
- 3 files changed, 30 insertions(+)
- create mode 100644 tools/include/tools/linux_types.h
-
+diff --git a/tools/include/tools/be_byteshift.h b/tools/include/tools/be_byteshift.h
+index f7d1d169..da63d52e 100644
 --- a/tools/include/tools/be_byteshift.h
 +++ b/tools/include/tools/be_byteshift.h
 @@ -2,6 +2,10 @@
@@ -25,6 +13,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  #include <stdint.h>
  
  static inline uint16_t __get_unaligned_be16(const uint8_t *p)
+diff --git a/tools/include/tools/le_byteshift.h b/tools/include/tools/le_byteshift.h
+index dc8565f3..0469dadb 100644
 --- a/tools/include/tools/le_byteshift.h
 +++ b/tools/include/tools/le_byteshift.h
 @@ -2,6 +2,10 @@
@@ -38,6 +28,9 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  #include <stdint.h>
  
  static inline uint16_t __get_unaligned_le16(const uint8_t *p)
+diff --git a/tools/include/tools/linux_types.h b/tools/include/tools/linux_types.h
+new file mode 100644
+index 00000000..f07ef829
 --- /dev/null
 +++ b/tools/include/tools/linux_types.h
 @@ -0,0 +1,22 @@

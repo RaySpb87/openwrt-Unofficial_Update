@@ -1,14 +1,5 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: make rootfs split/detection more generic - patch can be moved to generic-2.6 after testing on other platforms
-
-lede-commit: 328e660b31f0937d52c5ae3d6e7029409918a9df
-Signed-off-by: Felix Fietkau <nbd@nbd.name>
----
- drivers/mtd/Kconfig            | 17 +++++++++++++++++
- drivers/mtd/mtdpart.c          | 35 +++++++++++++++++++++++++++++++++++
- include/linux/mtd/partitions.h |  2 ++
- 3 files changed, 54 insertions(+)
-
+diff --git a/drivers/mtd/Kconfig b/drivers/mtd/Kconfig
+index 5a2d7172..f5ac04e2 100644
 --- a/drivers/mtd/Kconfig
 +++ b/drivers/mtd/Kconfig
 @@ -12,6 +12,23 @@ menuconfig MTD
@@ -35,6 +26,8 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  config MTD_TESTS
  	tristate "MTD tests support (DANGEROUS)"
  	depends on m
+diff --git a/drivers/mtd/mtdpart.c b/drivers/mtd/mtdpart.c
+index a4afdcbc..0536085d 100644
 --- a/drivers/mtd/mtdpart.c
 +++ b/drivers/mtd/mtdpart.c
 @@ -29,11 +29,13 @@
@@ -60,7 +53,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  /*
   * Given a pointer to the MTD object in the mtd_part structure, we can retrieve
   * the pointer to that structure.
-@@ -671,6 +675,7 @@ int mtd_add_partition(struct mtd_info *p
+@@ -671,6 +675,7 @@ int mtd_add_partition(struct mtd_info *parent, const char *name,
  	if (ret)
  		goto err_remove_part;
  
@@ -68,7 +61,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	mtd_add_partition_attrs(new);
  
  	return 0;
-@@ -757,6 +762,29 @@ int mtd_del_partition(struct mtd_info *m
+@@ -757,6 +762,29 @@ int mtd_del_partition(struct mtd_info *mtd, int partno)
  }
  EXPORT_SYMBOL_GPL(mtd_del_partition);
  
@@ -98,7 +91,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  /*
   * This function, given a master MTD object and a partition table, creates
   * and registers slave MTD objects which are bound to the master according to
-@@ -797,6 +825,7 @@ int add_mtd_partitions(struct mtd_info *
+@@ -797,6 +825,7 @@ int add_mtd_partitions(struct mtd_info *master,
  			goto err_del_partitions;
  		}
  

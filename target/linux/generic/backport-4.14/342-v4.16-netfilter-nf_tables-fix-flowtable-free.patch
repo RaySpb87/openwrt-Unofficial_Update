@@ -1,18 +1,5 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon, 5 Feb 2018 21:44:50 +0100
-Subject: [PATCH] netfilter: nf_tables: fix flowtable free
-
-Every flow_offload entry is added into the table twice. Because of this,
-rhashtable_free_and_destroy can't be used, since it would call kfree for
-each flow_offload object twice.
-
-This patch adds a call to nf_flow_table_iterate_cleanup() to schedule
-removal of entries, then there is an explicitly invocation of the
-garbage collector to clean up resources.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-
+diff --git a/include/net/netfilter/nf_flow_table.h b/include/net/netfilter/nf_flow_table.h
+index ed49cd16..020ae903 100644
 --- a/include/net/netfilter/nf_flow_table.h
 +++ b/include/net/netfilter/nf_flow_table.h
 @@ -14,6 +14,7 @@ struct nf_flowtable_type {
@@ -23,7 +10,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	const struct rhashtable_params	*params;
  	nf_hookfn			*hook;
  	struct module			*owner;
-@@ -98,6 +99,7 @@ int nf_flow_table_iterate(struct nf_flow
+@@ -98,6 +99,7 @@ int nf_flow_table_iterate(struct nf_flowtable *flow_table,
  
  void nf_flow_table_cleanup(struct net *net, struct net_device *dev);
  
@@ -31,9 +18,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  void nf_flow_offload_work_gc(struct work_struct *work);
  extern const struct rhashtable_params nf_flow_offload_rhash_params;
  
+diff --git a/net/ipv4/netfilter/nf_flow_table_ipv4.c b/net/ipv4/netfilter/nf_flow_table_ipv4.c
+index b2d01eb2..25d2975d 100644
 --- a/net/ipv4/netfilter/nf_flow_table_ipv4.c
 +++ b/net/ipv4/netfilter/nf_flow_table_ipv4.c
-@@ -260,6 +260,7 @@ static struct nf_flowtable_type flowtabl
+@@ -260,6 +260,7 @@ static struct nf_flowtable_type flowtable_ipv4 = {
  	.family		= NFPROTO_IPV4,
  	.params		= &nf_flow_offload_rhash_params,
  	.gc		= nf_flow_offload_work_gc,
@@ -41,9 +30,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	.hook		= nf_flow_offload_ip_hook,
  	.owner		= THIS_MODULE,
  };
+diff --git a/net/ipv6/netfilter/nf_flow_table_ipv6.c b/net/ipv6/netfilter/nf_flow_table_ipv6.c
+index 0c3b9d32..0b32664a 100644
 --- a/net/ipv6/netfilter/nf_flow_table_ipv6.c
 +++ b/net/ipv6/netfilter/nf_flow_table_ipv6.c
-@@ -254,6 +254,7 @@ static struct nf_flowtable_type flowtabl
+@@ -254,6 +254,7 @@ static struct nf_flowtable_type flowtable_ipv6 = {
  	.family		= NFPROTO_IPV6,
  	.params		= &nf_flow_offload_rhash_params,
  	.gc		= nf_flow_offload_work_gc,
@@ -51,9 +42,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	.hook		= nf_flow_offload_ipv6_hook,
  	.owner		= THIS_MODULE,
  };
+diff --git a/net/netfilter/nf_flow_table.c b/net/netfilter/nf_flow_table.c
+index 04c08f6b..c17f1af4 100644
 --- a/net/netfilter/nf_flow_table.c
 +++ b/net/netfilter/nf_flow_table.c
-@@ -232,19 +232,16 @@ static inline bool nf_flow_is_dying(cons
+@@ -232,19 +232,16 @@ static inline bool nf_flow_is_dying(const struct flow_offload *flow)
  	return flow->flags & FLOW_OFFLOAD_DYING;
  }
  
@@ -75,7 +68,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  
  	rhashtable_walk_start(&hti);
  
-@@ -270,7 +267,16 @@ void nf_flow_offload_work_gc(struct work
+@@ -270,7 +267,16 @@ void nf_flow_offload_work_gc(struct work_struct *work)
  out:
  	rhashtable_walk_stop(&hti);
  	rhashtable_walk_exit(&hti);
@@ -93,7 +86,7 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	queue_delayed_work(system_power_efficient_wq, &flow_table->gc_work, HZ);
  }
  EXPORT_SYMBOL_GPL(nf_flow_offload_work_gc);
-@@ -449,5 +455,12 @@ void nf_flow_table_cleanup(struct net *n
+@@ -449,5 +455,12 @@ void nf_flow_table_cleanup(struct net *net, struct net_device *dev)
  }
  EXPORT_SYMBOL_GPL(nf_flow_table_cleanup);
  
@@ -106,9 +99,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 +
  MODULE_LICENSE("GPL");
  MODULE_AUTHOR("Pablo Neira Ayuso <pablo@netfilter.org>");
+diff --git a/net/netfilter/nf_flow_table_inet.c b/net/netfilter/nf_flow_table_inet.c
+index 281209ae..375a1881 100644
 --- a/net/netfilter/nf_flow_table_inet.c
 +++ b/net/netfilter/nf_flow_table_inet.c
-@@ -24,6 +24,7 @@ static struct nf_flowtable_type flowtabl
+@@ -24,6 +24,7 @@ static struct nf_flowtable_type flowtable_inet = {
  	.family		= NFPROTO_INET,
  	.params		= &nf_flow_offload_rhash_params,
  	.gc		= nf_flow_offload_work_gc,
@@ -116,9 +111,11 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  	.hook		= nf_flow_offload_inet_hook,
  	.owner		= THIS_MODULE,
  };
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index cfef66d2..3d41a15d 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
-@@ -5299,17 +5299,12 @@ err:
+@@ -5443,17 +5443,12 @@ static void nf_tables_flowtable_notify(struct nft_ctx *ctx,
  	nfnetlink_set_err(ctx->net, ctx->portid, NFNLGRP_NFTABLES, -ENOBUFS);
  }
  

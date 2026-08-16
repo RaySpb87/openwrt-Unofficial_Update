@@ -1,3 +1,5 @@
+diff --git a/arch/mips/kernel/mips-cm.c b/arch/mips/kernel/mips-cm.c
+index 51cfcb44..6d55afff 100644
 --- a/arch/mips/kernel/mips-cm.c
 +++ b/arch/mips/kernel/mips-cm.c
 @@ -236,6 +236,7 @@ int mips_cm_probe(void)

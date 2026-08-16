@@ -1,50 +1,5 @@
-From 5b644aa012f67fd211138a067b9f351f30bdcc60 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
-Date: Wed, 14 Mar 2018 13:10:42 +0100
-Subject: [PATCH] mtd: partitions: add of_match_table parser matching for the
- "ofpart" type
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-In order to properly support compatibility strings as described in the
-bindings/mtd/partition.txt "ofpart" type should be treated as an
-indication for looking into OF. MTD should check "compatible" property
-and search for a matching parser rather than blindly trying the one
-supporting "fixed-partitions".
-
-It also means that existing "fixed-partitions" parser should get renamed
-to use a more meaningful name.
-
-This commit achievies that aim by introducing a new mtd_part_of_parse().
-It works by looking for a matching parser for every string in the
-"compatibility" property (starting with the most specific one).
-
-Please note that driver-specified parsers still take a precedence. It's
-assumed that driver providing a parser type has a good reason for that
-(e.g. having platform data with device-specific info). Also doing
-otherwise could break existing setups. The same applies to using default
-parsers (including "cmdlinepart") as some overwrite DT data with cmdline
-argument.
-
-Partition parsers can now provide an of_match_table to enable
-flash<-->parser matching via device tree as documented in the
-mtd/partition.txt.
-
-This support is currently limited to built-in parsers as it uses
-request_module() and friends. This should be sufficient for most cases
-though as compiling parsers as modules isn't a common choice.
-
-Signed-off-by: Brian Norris <computersforpeace@gmail.com>
-Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
-Tested-by: Peter Rosin <peda@axentia.se>
-Reviewed-by: Richard Weinberger <richard@nod.at>
-Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
----
- drivers/mtd/mtdpart.c          | 116 +++++++++++++++++++++++++++++++++++++----
- include/linux/mtd/partitions.h |   1 +
- 2 files changed, 108 insertions(+), 9 deletions(-)
-
+diff --git a/drivers/mtd/mtdpart.c b/drivers/mtd/mtdpart.c
+index 45626b0e..ad633330 100644
 --- a/drivers/mtd/mtdpart.c
 +++ b/drivers/mtd/mtdpart.c
 @@ -30,6 +30,7 @@
@@ -55,10 +10,11 @@ Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
  
  #include "mtdcore.h"
  
-@@ -919,6 +920,92 @@ static int mtd_part_do_parse(struct mtd_
+@@ -918,6 +919,92 @@ static int mtd_part_do_parse(struct mtd_part_parser *parser,
+ 	return ret;
  }
  
- /**
++/**
 + * mtd_part_get_compatible_parser - find MTD parser by a compatible string
 + *
 + * @compat: compatible string describing partitions in a device tree
@@ -144,11 +100,10 @@ Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
 +	return err;
 +}
 +
-+/**
+ /**
   * parse_mtd_partitions - parse MTD partitions
   * @master: the master partition (describes whole MTD device)
-  * @types: names of partition parsers to try or %NULL
-@@ -950,19 +1037,30 @@ int parse_mtd_partitions(struct mtd_info
+@@ -950,19 +1037,30 @@ int parse_mtd_partitions(struct mtd_info *master, const char *const *types,
  		types = default_mtd_part_types;
  
  	for ( ; *types; types++) {
@@ -188,6 +143,8 @@ Signed-off-by: Boris Brezillon <boris.brezillon@bootlin.com>
  		/*
  		 * Stash the first error we see; only report it if no parser
  		 * succeeds
+diff --git a/include/linux/mtd/partitions.h b/include/linux/mtd/partitions.h
+index c4beb70d..11cb0c50 100644
 --- a/include/linux/mtd/partitions.h
 +++ b/include/linux/mtd/partitions.h
 @@ -77,6 +77,7 @@ struct mtd_part_parser {
