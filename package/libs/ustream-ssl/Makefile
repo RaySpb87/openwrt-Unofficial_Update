@@ -44,7 +44,7 @@ endef
 define Package/libustream-mbedtls
   $(Package/libustream/default)
   TITLE += (mbedtls)
-  DEPENDS += +PACKAGE_libustream-mbedtls:libmbedtls
+  DEPENDS += +libmbedtls
   CONFLICTS := libustream-openssl libustream-wolfssl
   VARIANT:=mbedtls
   DEFAULT_VARIANT:=1
