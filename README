@@ -5,7 +5,8 @@ Hello everyone!
 OpenWrt is developing rapidly, but there's a downside: old but still perfectly capable devices with limited memory (4/32 and 8/64 MB) often get "left behind". 
 Without updates, with minor bugs and, worst of all, with security vulnerabilities.
 
-**Goal of this project:** Experimental life extension for the old-timers! We update the system kernel and key packages to current versions, patching known bugs and critical vulnerabilities.
+**Goal of this project:** Experimental life extension for the old-timers! 
+We update the system kernel and key packages to current versions, patching known bugs and critical vulnerabilities.
 
 ---
 
@@ -15,7 +16,8 @@ Please read this before using:
 
 1. This is an experiment. Things may not go as planned (up to and including getting a "brick"). Use at your own risk.
 2. I am not a professional programmer or network engineer. An AI agent actively helps me solve complex tasks. We learn and experiment together.
-3. No 100% guarantees. This project cannot guarantee complete elimination of all vulnerabilities or perfect stability, even if packages are updated to the required versions.
+3. No 100% guarantees. 
+This project cannot guarantee complete elimination of all vulnerabilities or perfect stability, even if packages are updated to the required versions.
 4. Common sense: If you need a guaranteed reliable and secure router for critical tasks — please buy a modern model with official manufacturer support.
 
 But if you're not afraid to get your hands dirty, enjoy digging through `logread`, and don't fear the word `sysupgrade` — welcome to the club!
@@ -25,44 +27,10 @@ But if you're not afraid to get your hands dirty, enjoy digging through `logread
 ### Current Status
 
 * **Active branch:** `openwrt-19.07.10UU`
-* **Target platform:** `ramips`
-* **Project is being tested on devices with chipsets:**
-  * **RT5350** (e.g., D-Link DIR-320 B1)
+* **Project is being tested on devices with `ramips` chipsets:**
+  * **RT5350**
   * **MT7620**
 
 ---
-
-_______                     ________        __
- |       |.-----.-----.-----.|  |  |  |.----.|  |_
- |   -   ||  _  |  -__|     ||  |  |  ||   _||   _|
- |_______||   __|_____|__|__||________||__|  |____|
-          |__| W I R E L E S S   F R E E D O M
- -----------------------------------------------------
-
-This is the buildsystem for the OpenWrt Linux distribution.
-
-To build your own firmware you need a Linux, BSD or MacOSX system (case
-sensitive filesystem required). Cygwin is unsupported because of the lack
-of a case sensitive file system.
-
-You need gcc, binutils, bzip2, flex, python, perl, make, find, grep, diff,
-unzip, gawk, getopt, subversion, libz-dev and libc headers installed.
-
-1. Run "./scripts/feeds update -a" to obtain all the latest package definitions
-defined in feeds.conf / feeds.conf.default
-
-2. Run "./scripts/feeds install -a" to install symlinks for all obtained
-packages into package/feeds/
-
-3. Run "make menuconfig" to select your preferred configuration for the
-toolchain, target system & firmware packages.
-
-4. Run "make" to build your firmware. This will download all sources, build
-the cross-compile toolchain and then cross-compile the Linux kernel & all
-chosen applications for your target system.
-
-Sunshine!
-	Your OpenWrt Community
-	http://www.openwrt.org
 
 
