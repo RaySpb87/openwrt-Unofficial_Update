@@ -149,6 +149,7 @@ menu "Target Images"
 		config TARGET_SQUASHFS_BLOCK_SIZE
 			int "Block size (in KiB)"
 			depends on TARGET_ROOTFS_SQUASHFS
+			default 512 if TARGET_ath79_tiny
 			default 64 if LOW_MEMORY_FOOTPRINT
 			default 1024 if (SMALL_FLASH && !LOW_MEMORY_FOOTPRINT)
 			default 256
