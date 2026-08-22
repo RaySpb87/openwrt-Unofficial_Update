@@ -9,24 +9,21 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=openssl
 PKG_BASE:=1.1.1
-PKG_BUGFIX:=n
+PKG_BUGFIX:=zh
 PKG_VERSION:=$(PKG_BASE)$(PKG_BUGFIX)
 PKG_RELEASE:=1
 PKG_USE_MIPS16:=0
 ENGINES_DIR=engines-1.1
 
+PKG_BUILD_DIR:=$(BUILD_DIR)/openssl-1.1.1-$(PKG_VERSION)
+
 PKG_BUILD_PARALLEL:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:= \
-	http://www.openssl.org/source/ \
-	http://www.openssl.org/source/old/$(PKG_BASE)/ \
-	http://ftp.fi.muni.cz/pub/openssl/source/ \
-	http://ftp.fi.muni.cz/pub/openssl/source/old/$(PKG_BASE)/ \
-	ftp://ftp.pca.dfn.de/pub/tools/net/openssl/source/ \
-	ftp://ftp.pca.dfn.de/pub/tools/net/openssl/source/old/$(PKG_BASE)/
+	https://codeload.github.com/kzalewski/openssl-1.1.1/tar.gz/refs/tags/$(PKG_VERSION)?
 
-PKG_HASH:=40dceb51a4f6a5275bde0e6bf20ef4b91bfc32ed57c0552e2e8e15463372b17a
+PKG_HASH:=5872dd71b14d637ddf409386b7532baff555fe3d68a880f638ca102e6c2d3872
 
 PKG_LICENSE:=OpenSSL
 PKG_LICENSE_FILES:=LICENSE
