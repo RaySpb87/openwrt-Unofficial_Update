@@ -27,10 +27,12 @@ But if you're not afraid to get your hands dirty, enjoy digging through `logread
 ### Current Status
 
 * **Active branch:** `openwrt-19.07.10UU`
-* **Project is being tested on devices with `ramips` chipsets:**
+* **Project is being tested on devices with:
+* **ramips` chipsets:**
   * **RT5350**
   * **MT7620**
-
+* **ath79 chipsets:**
+  * **AR9341**
 ---
 
 
