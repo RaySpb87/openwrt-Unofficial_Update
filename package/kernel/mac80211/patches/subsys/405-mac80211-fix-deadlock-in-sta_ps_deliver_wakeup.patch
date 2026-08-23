@@ -1,0 +1,43 @@
+From: Remi Pommarel <repk@triplefau.lt>
+Date: Wed, 29 May 2024 08:57:53 +0200
+Subject: [PATCH] mac80211: fix deadlock in ieee80211_sta_ps_deliver_wakeup()
+
+The ieee80211_sta_ps_deliver_wakeup() function takes sta->ps_lock to
+synchronizes with ieee80211_tx_h_unicast_ps_buf() which is called from
+softirq context. However using only spin_lock() to get sta->ps_lock in
+ieee80211_sta_ps_deliver_wakeup() does not prevent softirq to execute on
+this same CPU, to run ieee80211_tx_h_unicast_ps_buf() and try to take
+this same lock ending in deadlock.
+
+Using spin_lock_bh()/spin_unlock_bh() instead prevents softirq to raise
+on the same CPU that is holding the lock.
+
+Upstream commit: 44c06bbde6443de206b30f513100b5670b23fc5e
+CIP 4.19 commit: e51637e0c66a6f72d134d9f95daa47ea62b43c7e
+
+Cc: stable@vger.kernel.org
+Fixes: 1d147bfa6429 ("mac80211: fix AP powersave TX vs. wakeup race")
+Signed-off-by: Remi Pommarel <repk@triplefau.lt>
+Link: https://msgid.link/8e36fe07d0fbc146f89196cd47a53c8a0afe84aa.1716910344.git.repk@triplefau.lt
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+--- a/net/mac80211/sta_info.c
++++ b/net/mac80211/sta_info.c
+@@ -1273,7 +1273,7 @@ void ieee80211_sta_ps_deliver_wakeup(str
+ 	skb_queue_head_init(&pending);
+ 
+ 	/* sync with ieee80211_tx_h_unicast_ps_buf */
+-	spin_lock(&sta->ps_lock);
++	spin_lock_bh(&sta->ps_lock);
+ 	/* Send all buffered frames to the station */
+ 	for (ac = 0; ac < IEEE80211_NUM_ACS; ac++) {
+ 		int count = skb_queue_len(&pending), tmp;
+@@ -1302,7 +1302,7 @@ void ieee80211_sta_ps_deliver_wakeup(str
+ 	 */
+ 	clear_sta_flag(sta, WLAN_STA_PSPOLL);
+ 	clear_sta_flag(sta, WLAN_STA_UAPSD);
+-	spin_unlock(&sta->ps_lock);
++	spin_unlock_bh(&sta->ps_lock);
+ 
+ 	atomic_dec(&ps->num_sta_ps);
+ 
