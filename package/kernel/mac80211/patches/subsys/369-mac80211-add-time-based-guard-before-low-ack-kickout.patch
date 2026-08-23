@@ -1,0 +1,21 @@
+--- a/net/mac80211/status.c
++++ b/net/mac80211/status.c
+@@ -573,6 +573,7 @@
+  *  - current throughput (higher value for higher tpt)?
+  */
+ #define STA_LOST_PKT_THRESHOLD	50
++#define STA_LOST_PKT_TIME	HZ		/* 1 sec since last ACK */
+ #define STA_LOST_TDLS_PKT_THRESHOLD	10
+ #define STA_LOST_TDLS_PKT_TIME		(10*HZ) /* 10secs since last ACK */
+ 
+@@ -592,7 +593,9 @@
+ 
+ 	sta->status_stats.lost_packets++;
+ 	if (!sta->sta.tdls &&
+-	    sta->status_stats.lost_packets < STA_LOST_PKT_THRESHOLD)
++	    (sta->status_stats.lost_packets < STA_LOST_PKT_THRESHOLD ||
++	     time_before(jiffies,
++			 sta->status_stats.last_ack + STA_LOST_PKT_TIME)))
+ 		return;
+ 
+ 	/*
