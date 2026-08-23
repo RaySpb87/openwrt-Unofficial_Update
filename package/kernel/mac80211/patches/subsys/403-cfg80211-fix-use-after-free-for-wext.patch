@@ -1,0 +1,99 @@
+From: Alexander Wetzel <alexander@wetzel-home.de>
+Date: Tue, 24 Jan 2023 15:18:56 +0100
+Subject: [PATCH] cfg80211: fix use after free for wext
+
+Key information in wext.connect is not reset on (re)connect and can hold
+data from a previous connection.
+
+Reset key data to avoid that drivers or mac80211 incorrectly detect a
+WEP connection request and access the freed or already reused memory.
+
+Additionally optimize cfg80211_sme_connect() and avoid an useless
+schedule of conn_work.
+
+This combines two upstream commits into one backport patch:
+
+* 015b8cc5e7c4d7bb671f1984d7b7338c310b185b ("wifi: cfg80211: Fix use
+  after free for wext") - CIP 4.19 commit a2a92b3e9d8e03ee3f9ee407fc46a9b4bd02d8b6
+
+* 79d1ed5ca7db67d48e870c979f0e0f6b0947944a ("wifi: cfg80211: Partial
+  revert "wifi: cfg80211: Fix use after free for wext"") - CIP 4.19 commit
+  6e51ac81472b65b9fc0f0725d3b554c6611d258e
+
+The partial revert drops unconditional clearing of the crypto modes,
+which broke WPA offload for non-WEP connections.
+
+Cc: stable@vger.kernel.org
+Fixes: fffd0934b939 ("cfg80211: rework key operation")
+Link: https://lore.kernel.org/r/20230124141856.356646-1-alexander@wetzel-home.de
+Signed-off-by: Alexander Wetzel <alexander@wetzel-home.de>
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+Signed-off-by: Hector Martin <marcan@marcan.st>
+Link: https://lore.kernel.org/linux-wireless/ZAx0TWRBlGfv7pNl@kroah.com/T/#m11e6e0915ab8fa19ce8bc9695ab288c0fe018edf
+---
+--- a/net/wireless/sme.c
++++ b/net/wireless/sme.c
+@@ -269,6 +269,15 @@ void cfg80211_conn_work(struct work_stru
+ 	rtnl_unlock();
+ }
+ 
++static void cfg80211_step_auth_next(struct cfg80211_conn *conn,
++				    struct cfg80211_bss *bss)
++{
++	memcpy(conn->bssid, bss->bssid, ETH_ALEN);
++	conn->params.bssid = conn->bssid;
++	conn->params.channel = bss->channel;
++	conn->state = CFG80211_CONN_AUTHENTICATE_NEXT;
++}
++
+ /* Returned bss is reference counted and must be cleaned up appropriately. */
+ static struct cfg80211_bss *cfg80211_get_conn_bss(struct wireless_dev *wdev)
+ {
+@@ -286,10 +295,7 @@ static struct cfg80211_bss *cfg80211_get
+ 	if (!bss)
+ 		return NULL;
+ 
+-	memcpy(wdev->conn->bssid, bss->bssid, ETH_ALEN);
+-	wdev->conn->params.bssid = wdev->conn->bssid;
+-	wdev->conn->params.channel = bss->channel;
+-	wdev->conn->state = CFG80211_CONN_AUTHENTICATE_NEXT;
++	cfg80211_step_auth_next(wdev->conn, bss);
+ 	schedule_work(&rdev->conn_work);
+ 
+ 	return bss;
+@@ -568,7 +574,12 @@ static int cfg80211_sme_connect(struct w
+ 	wdev->conn->params.ssid_len = wdev->ssid_len;
+ 
+ 	/* see if we have the bss already */
+-	bss = cfg80211_get_conn_bss(wdev);
++	bss = cfg80211_get_bss(wdev->wiphy, wdev->conn->params.channel,
++			       wdev->conn->params.bssid,
++			       wdev->conn->params.ssid,
++			       wdev->conn->params.ssid_len,
++			       wdev->conn_bss_type,
++			       IEEE80211_PRIVACY(wdev->conn->params.privacy));
+ 
+ 	if (prev_bssid) {
+ 		memcpy(wdev->conn->prev_bssid, prev_bssid, ETH_ALEN);
+@@ -579,6 +590,7 @@ static int cfg80211_sme_connect(struct w
+ 	if (bss) {
+ 		enum nl80211_timeout_reason treason;
+ 
++		cfg80211_step_auth_next(wdev->conn, bss);
+ 		err = cfg80211_conn_do_work(wdev, &treason);
+ 		cfg80211_put_bss(wdev->wiphy, bss);
+ 	} else {
+@@ -1207,6 +1219,13 @@ int cfg80211_connect(struct cfg80211_reg
+ 	} else {
+ 		if (WARN_ON(connkeys))
+ 			return -EINVAL;
++
++		/* connect can point to wdev->wext.connect which
++		 * can hold key data from a previous connection
++		 */
++		connect->key = NULL;
++		connect->key_len = 0;
++		connect->key_idx = 0;
+ 	}
+ 
+ 	wdev->connect_keys = connkeys;
