@@ -1,0 +1,87 @@
+From: Felix Fietkau <nbd@nbd.name>
+Date: Tue, 21 Apr 2026 10:44:25 +0800
+Subject: [PATCH] mac80211: always free skb on ieee80211_tx_prepare_skb()
+ failure
+
+ieee80211_tx_prepare_skb() has three error paths, but only two of them
+free the skb. The first error path (ieee80211_tx_prepare() returning
+TX_DROP) does not free it, while invoke_tx_handlers() failure and the
+fragmentation check both do.
+
+Add kfree_skb() to the first error path so all three are consistent, and
+remove the now-redundant frees in callers (ath9k, mac80211_hwsim) to
+avoid double-free.
+
+Document the skb ownership guarantee in the function's kdoc.
+
+Upstream commit: d5ad6ab61cbd89afdb60881f6274f74328af3ee9
+CIP 4.19 commit: 55b2c0c6d61942b7c7e20bbaf7ef163e4c1eee77
+(The mt76 hunk from upstream does not apply here: the file
+ drivers/net/wireless/mediatek/mt76/scan.c does not exist in
+ backports-4.19.237.)
+
+Link: https://patch.msgid.link/20260314065455.2462900-1-nbd@nbd.name
+Fixes: 06be6b149f7e ("mac80211: add ieee80211_tx_prepare_skb() helper function")
+Signed-off-by: Felix Fietkau <nbd@nbd.name>
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+--- a/drivers/net/wireless/ath/ath9k/channel.c
++++ b/drivers/net/wireless/ath/ath9k/channel.c
+@@ -1011,7 +1011,7 @@ static void ath_scan_send_probe(struct a
+ 	skb_set_queue_mapping(skb, IEEE80211_AC_VO);
+ 
+ 	if (!ieee80211_tx_prepare_skb(sc->hw, vif, skb, band, NULL))
+-		goto error;
++		return;
+ 
+ 	txctl.txq = sc->tx.txq_map[IEEE80211_AC_VO];
+ 	if (ath_tx_start(sc->hw, skb, &txctl))
+@@ -1124,10 +1124,8 @@ ath_chanctx_send_vif_ps_frame(struct ath
+ 
+ 		skb->priority = 7;
+ 		skb_set_queue_mapping(skb, IEEE80211_AC_VO);
+-		if (!ieee80211_tx_prepare_skb(sc->hw, vif, skb, band, &sta)) {
+-			dev_kfree_skb_any(skb);
++		if (!ieee80211_tx_prepare_skb(sc->hw, vif, skb, band, &sta))
+ 			return false;
+-		}
+ 		break;
+ 	default:
+ 		return false;
+--- a/drivers/net/wireless/mac80211_hwsim.c
++++ b/drivers/net/wireless/mac80211_hwsim.c
+@@ -2087,7 +2087,6 @@ static void hw_scan_work(struct work_struct *work)
+ 						      probe,
+ 						      hwsim->tmp_chan->band,
+ 						      NULL)) {
+-				kfree_skb(probe);
+ 				continue;
+ 			}
+ 
+--- a/include/net/mac80211.h
++++ b/include/net/mac80211.h
+@@ -5951,6 +5951,10 @@ void ieee80211_report_wowlan_wakeup(stru
+  * @band: the band to transmit on
+  * @sta: optional pointer to get the station to send the frame to
+  *
++ * Return: %true if the skb was prepared, %false otherwise.
++ * On failure, the skb is freed by this function; callers must not
++ * free it again.
++ *
+  * Note: must be called under RCU lock
+  */
+ bool ieee80211_tx_prepare_skb(struct ieee80211_hw *hw,
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -1839,8 +1839,10 @@ bool ieee80211_tx_prepare_skb(struct iee
+ 	struct ieee80211_tx_data tx;
+ 	struct sk_buff *skb2;
+ 
+-	if (ieee80211_tx_prepare(sdata, &tx, NULL, skb) == TX_DROP)
++	if (ieee80211_tx_prepare(sdata, &tx, NULL, skb) == TX_DROP) {
++		kfree_skb(skb);
+ 		return false;
++	}
+ 
+ 	info->band = band;
+ 	info->control.vif = vif;
