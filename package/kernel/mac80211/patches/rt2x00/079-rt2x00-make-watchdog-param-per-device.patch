@@ -1,0 +1,67 @@
+From 62ad3b976cd7f1cc75458c7df34afb4349ae2429 Mon Sep 17 00:00:00 2001
+From: Stanislaw Gruszka <stf_xl@wp.pl>
+Date: Sun, 26 Nov 2023 20:53:58 +0100
+Subject: [PATCH] wifi: rt2x00: make watchdog param per device
+
+We can run PCI/MMIO devices together with USB devices in the system.
+Make watchdog parameter per device to avoid situation when plugin
+USB device change modparam_watchdog for PCI/MMIO device.
+
+Signed-off-by: Stanislaw Gruszka <stf_xl@wp.pl>
+Tested-by: Shiji Yang <yangshiji66@outlook.com>
+Signed-off-by: Kalle Valo <kvalo@kernel.org>
+---
+--- a/drivers/net/wireless/ralink/rt2x00/rt2800lib.c
++++ b/drivers/net/wireless/ralink/rt2x00/rt2800lib.c
+@@ -1331,10 +1331,10 @@
+ 	if (test_bit(DEVICE_STATE_SCANNING, &rt2x00dev->flags))
+ 		return;
+ 
+-	if (modparam_watchdog & RT2800_WATCHDOG_DMA_BUSY)
++	if (rt2x00dev->link.watchdog & RT2800_WATCHDOG_DMA_BUSY)
+ 		reset = rt2800_watchdog_dma_busy(rt2x00dev);
+ 
+-	if (modparam_watchdog & RT2800_WATCHDOG_HANG)
++	if (rt2x00dev->link.watchdog & RT2800_WATCHDOG_HANG)
+ 		reset = rt2800_watchdog_hung(rt2x00dev) || reset;
+ 
+ 	if (reset)
+@@ -12031,10 +12031,11 @@
+ 		__set_bit(REQUIRE_TASKLET_CONTEXT, &rt2x00dev->cap_flags);
+ 	}
+ 
++	rt2x00dev->link.watchdog = modparam_watchdog;
+ 	/* USB NICs don't support DMA watchdog as INT_SOURCE_CSR is invalid */
+ 	if (rt2x00_is_usb(rt2x00dev))
+-		modparam_watchdog &= ~RT2800_WATCHDOG_DMA_BUSY;
+-	if (modparam_watchdog) {
++		rt2x00dev->link.watchdog &= ~RT2800_WATCHDOG_DMA_BUSY;
++	if (rt2x00dev->link.watchdog) {
+ 		__set_bit(CAPABILITY_RESTART_HW, &rt2x00dev->cap_flags);
+ 		rt2x00dev->link.watchdog_interval = msecs_to_jiffies(100);
+ 	}
+
+--- a/drivers/net/wireless/ralink/rt2x00/rt2x00.h
++++ b/drivers/net/wireless/ralink/rt2x00/rt2x00.h
+@@ -338,7 +338,7 @@
+ 	 */
+ 	struct delayed_work watchdog_work;
+ 	unsigned int watchdog_interval;
+-	bool watchdog_disabled;
++	unsigned int watchdog;
+ 
+ 	/*
+ 	 * Work structure for scheduling periodic AGC adjustments.
+
+--- a/drivers/net/wireless/ralink/rt2x00/rt2x00link.c
++++ b/drivers/net/wireless/ralink/rt2x00/rt2x00link.c
+@@ -395,7 +395,7 @@
+ 	struct link *link = &rt2x00dev->link;
+ 
+ 	if (test_bit(DEVICE_STATE_PRESENT, &rt2x00dev->flags) &&
+-	    rt2x00dev->ops->lib->watchdog && !link->watchdog_disabled)
++	    rt2x00dev->ops->lib->watchdog && link->watchdog)
+ 		ieee80211_queue_delayed_work(rt2x00dev->hw,
+ 					     &link->watchdog_work,
+ 					     link->watchdog_interval);
+
