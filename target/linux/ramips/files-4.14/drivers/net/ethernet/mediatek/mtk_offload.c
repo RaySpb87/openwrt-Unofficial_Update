@@ -12,6 +12,10 @@
 
 #include "mtk_offload.h"
 
+#ifdef CONFIG_SOC_MT7620
+#include "gsw_mt7620.h"
+#endif
+
 #define INVALID	0
 #define UNBIND	1
 #define BIND	2
@@ -19,6 +23,74 @@
 
 #define IPV4_HNAPT			0
 #define IPV4_HNAT			1
+
+#ifdef CONFIG_SOC_MT7620
+/* MT7620 Frame Engine PPE block (RALINK_PPE_BASE = FE_BASE + 0xC00) */
+#define MT7620_PPE_GDM2_FWD_CFG		0xD00
+/* MT7620 ESW (GSW) registers used to wire the PPE port (port 7) */
+#define MT7620_ESW_PFC			0x0004
+#define MT7620_ESW_TPF(x)		(0x2030 + ((x) * 0x100))
+#define MT7620_ESW_TPF_NUM		6
+#define MT7620_ESW_PMCR_P7		0x3700
+#define MT7620_ESW_PSC_P7		0x270C
+/* TPF (to-PPE forwarding) bits, IPv4, exclude broadcast */
+#define MT7620_TPF_IPV4_MYUC		BIT(0)
+#define MT7620_TPF_IPV4_UC		BIT(4)
+#define MT7620_TPF_IPV4_UN		BIT(5)
+
+static void
+mt7620_esw_ppe(bool enable, struct mtk_eth *eth)
+{
+	struct mt7620_gsw *gsw = (struct mt7620_gsw *)eth->soc->swpriv;
+	u32 val;
+	int i;
+
+	if (enable) {
+		/* PPE_PORT = 7, PPE_EN = 1 */
+		mtk_switch_w32(gsw, mtk_switch_r32(gsw, MT7620_ESW_PFC) |
+			       (1 << 3) | 0x7, MT7620_ESW_PFC);
+
+		/* forward IPv4 ucast frames to the PPE */
+		for (i = 0; i < MT7620_ESW_TPF_NUM; i++)
+			mtk_switch_w32(gsw, mtk_switch_r32(gsw, MT7620_ESW_TPF(i)) |
+				MT7620_TPF_IPV4_MYUC | MT7620_TPF_IPV4_UC |
+				MT7620_TPF_IPV4_UN, MT7620_ESW_TPF(i));
+
+		/* force port 7 link up, 1Gbps, full duplex */
+		mtk_switch_w32(gsw, 0x5e33b, MT7620_ESW_PMCR_P7);
+
+		/* disable SA learning on port 7 */
+		mtk_switch_w32(gsw, mtk_switch_r32(gsw, MT7620_ESW_PSC_P7) |
+			       BIT(4), MT7620_ESW_PSC_P7);
+	} else {
+		/* PPE_EN = 0 */
+		mtk_switch_w32(gsw, mtk_switch_r32(gsw, MT7620_ESW_PFC) &
+			       ~BIT(3), MT7620_ESW_PFC);
+
+		/* clear all to-PPE forwarding */
+		for (i = 0; i < MT7620_ESW_TPF_NUM; i++)
+			mtk_switch_w32(gsw, 0, MT7620_ESW_TPF(i));
+
+		/* force port 7 link down */
+		mtk_switch_w32(gsw, 0x5e330, MT7620_ESW_PMCR_P7);
+	}
+}
+
+static void
+mt7620_ppe_gdm2_fwd(bool enable, struct mtk_eth *eth)
+{
+	u32 val = mtk_r32(eth, MT7620_PPE_GDM2_FWD_CFG);
+
+	val &= ~0x7777;
+	if (enable)
+		/* U/B/M/O frames forward to the PPE */
+		val |= 0x0;
+	else
+		/* discard U/B/M/O frames while the PPE is going down */
+		val |= 0x7777;
+	mtk_w32(eth, val, MT7620_PPE_GDM2_FWD_CFG);
+}
+#endif
 
 static u32
 mtk_flow_hash_v4(struct flow_offload_tuple *tuple)
@@ -47,19 +119,34 @@ mtk_foe_prepare_v4(struct mtk_foe_entry *entry,
 {
 	int is_mcast = !!is_multicast_ether_addr(dest->eth_dest);
 
+#ifdef CONFIG_SOC_MT7620
+	/* keep reference to avoid "unused variable" warning */
+	(void)is_mcast;
+#endif
+
 	if (tuple->l4proto == IPPROTO_UDP)
 		entry->ipv4_hnapt.bfib1.udp = 1;
 
 	entry->ipv4_hnapt.etype = htons(ETH_P_IP);
 	entry->ipv4_hnapt.bfib1.pkt_type = IPV4_HNAPT;
-	entry->ipv4_hnapt.iblk2.fqos = 0;
 	entry->ipv4_hnapt.bfib1.ttl = 1;
 	entry->ipv4_hnapt.bfib1.cah = 1;
 	entry->ipv4_hnapt.bfib1.ka = 1;
-	entry->ipv4_hnapt.iblk2.mcast = is_mcast;
-	entry->ipv4_hnapt.iblk2.dscp = 0;
 	entry->ipv4_hnapt.iblk2.port_mg = 0x3f;
 	entry->ipv4_hnapt.iblk2.port_ag = 0x1f;
+#ifdef CONFIG_SOC_MT7620
+	/* no force port - let the switch pick the egress port by DA */
+	entry->ipv4_hnapt.iblk2.fpidx = 8;
+	entry->ipv4_hnapt.iblk2.fp = 0;
+	entry->ipv4_hnapt.iblk2.up = 0;
+	entry->ipv4_hnapt.iblk2.fdq = 0;
+	/* keep VPRI/DSCP on egress */
+	entry->ipv4_hnapt.bfib1.dvp = 1;
+	entry->ipv4_hnapt.bfib1.drm = 1;
+#else
+	entry->ipv4_hnapt.iblk2.fqos = 0;
+	entry->ipv4_hnapt.iblk2.mcast = is_mcast;
+	entry->ipv4_hnapt.iblk2.dscp = 0;
 #ifdef CONFIG_NET_MEDIATEK_HW_QOS
 	entry->ipv4_hnapt.iblk2.qid = 1;
 	entry->ipv4_hnapt.iblk2.fqos = 1;
@@ -70,6 +157,7 @@ mtk_foe_prepare_v4(struct mtk_foe_entry *entry,
 		entry->ipv4_hnapt.iblk2.qid += 8;
 #else
 	entry->ipv4_hnapt.iblk2.dp = (dest->dev->name[3] - '0') + 1;
+#endif
 #endif
 
 	entry->ipv4_hnapt.sip = ntohl(tuple->src_v4.s_addr);
@@ -94,6 +182,7 @@ mtk_foe_prepare_v4(struct mtk_foe_entry *entry,
 		entry->ipv4_hnapt.vlan1 = dest->vlan_id;
 		entry->bfib1.vlan_layer = 1;
 
+#ifndef CONFIG_SOC_MT7620
 		switch (dest->vlan_proto) {
 		case htons(ETH_P_8021Q):
 			entry->ipv4_hnapt.bfib1.vpm = 1;
@@ -104,6 +193,10 @@ mtk_foe_prepare_v4(struct mtk_foe_entry *entry,
 		default:
 			return -EINVAL;
 		}
+#else
+		if (dest->vlan_proto != htons(ETH_P_8021Q))
+			return -EINVAL;
+#endif
 	}
 
 	return 0;
@@ -373,9 +466,29 @@ static int mtk_ppe_start(struct mtk_eth *eth)
 	mtk_w32(eth, MTK_PPE_NTU_KA | 0x3fff, MTK_REG_PPE_BIND_LMT_1);
 	mtk_m32(eth, MTK_PPE_BNDR_RATE_MASK, 1, MTK_REG_PPE_BNDR);
 
+#ifdef CONFIG_SOC_MT7620
+	/*
+	 * MT7620: PSE "force port" bitmap table used by the FOE fpidx
+	 * (0:force port0 ... 8:no force port / 9:force to all ports).
+	 * Required for FOE entries with fpidx=8 (no force port).
+	 */
+	mtk_w32(eth, 0x00020001, MTK_REG_PPE_DFT_CPORT + 0x0);
+	mtk_w32(eth, 0x00080004, MTK_REG_PPE_DFT_CPORT + 0x4);
+	mtk_w32(eth, 0x00200010, MTK_REG_PPE_DFT_CPORT + 0x8);
+	mtk_w32(eth, 0x00800040, MTK_REG_PPE_DFT_CPORT + 0xc);
+	mtk_w32(eth, 0x003F0000, MTK_REG_PPE_DFT_CPORT + 0x10);
+
+	/* wire the PPE port (port 7) on the ESW side */
+	mt7620_esw_ppe(true, eth);
+
+	/* send all traffic from gdm to the ppe */
+	mt7620_ppe_gdm2_fwd(true, eth);
+#endif
+
 	/* enable the PPE */
 	mtk_m32(eth, 0, MTK_PPE_GLO_CFG_EN, MTK_REG_PPE_GLO_CFG);
 
+#ifndef CONFIG_SOC_MT7620
 #ifdef CONFIG_RALINK
 	/* set the default forwarding port to QDMA */
 	mtk_w32(eth, 0x0, MTK_REG_PPE_DFT_CPORT);
@@ -383,13 +496,16 @@ static int mtk_ppe_start(struct mtk_eth *eth)
 	/* set the default forwarding port to QDMA */
 	mtk_w32(eth, 0x55555555, MTK_REG_PPE_DFT_CPORT);
 #endif
+#endif
 
 	/* allow packets with TTL=0 */
 	mtk_m32(eth, MTK_PPE_GLO_CFG_TTL0_DROP, 0, MTK_REG_PPE_GLO_CFG);
 
+#ifndef CONFIG_SOC_MT7620
 	/* send all traffic from gmac to the ppe */
 	mtk_m32(eth, 0xffff, 0x4444, MTK_GDMA_FWD_CFG(0));
 	mtk_m32(eth, 0xffff, 0x4444, MTK_GDMA_FWD_CFG(1));
+#endif
 
 	dev_info(eth->dev, "PPE started\n");
 
@@ -420,7 +536,8 @@ static int mtk_ppe_busy_wait(struct mtk_eth *eth)
 	}
 
 	dev_err(eth->dev, "ppe: table busy timeout - resetting\n");
-	reset_control_reset(eth->rst_ppe);
+	if (eth->rst_ppe)
+		reset_control_reset(eth->rst_ppe);
 
 	return -ETIMEDOUT;
 }
@@ -431,8 +548,12 @@ static int mtk_ppe_stop(struct mtk_eth *eth)
 	int i;
 
 	/* discard all traffic while we disable the PPE */
+#ifdef CONFIG_SOC_MT7620
+	mt7620_ppe_gdm2_fwd(false, eth);
+#else
 	mtk_m32(eth, 0xffff, 0x7777, MTK_GDMA_FWD_CFG(0));
 	mtk_m32(eth, 0xffff, 0x7777, MTK_GDMA_FWD_CFG(1));
+#endif
 
 	if (mtk_ppe_busy_wait(eth))
 		return -ETIMEDOUT;
@@ -462,6 +583,7 @@ static int mtk_ppe_stop(struct mtk_eth *eth)
 		MTK_PPE_TB_CFG_TCP_AGE | MTK_PPE_TB_CFG_UNBD_AGE |
 		MTK_PPE_TB_CFG_NTU_AGE, MTK_REG_PPE_TB_CFG);
 
+#ifdef CONFIG_SOC_MT7621
 	r1 = mtk_r32(eth, 0x100);
 	r2 = mtk_r32(eth, 0x10c);
 
@@ -472,6 +594,7 @@ static int mtk_ppe_stop(struct mtk_eth *eth)
 		dev_info(eth->dev, "reset pse\n");
 		mtk_w32(eth, 0x1, 0x4);
 	}
+#endif
 
 	/* set the foe entry base address to 0 */
 	mtk_w32(eth, 0, MTK_REG_PPE_TB_BASE);
@@ -480,12 +603,18 @@ static int mtk_ppe_stop(struct mtk_eth *eth)
 		return -ETIMEDOUT;
 
 	/* send all traffic back to the DMA engine */
+#ifdef CONFIG_SOC_MT7620
+	mt7620_esw_ppe(false, eth);
+	/* keep the PPE ingress path disabled while the PPE is off */
+	mt7620_ppe_gdm2_fwd(false, eth);
+#else
 #ifdef CONFIG_RALINK
 	mtk_m32(eth, 0xffff, 0x0, MTK_GDMA_FWD_CFG(0));
 	mtk_m32(eth, 0xffff, 0x0, MTK_GDMA_FWD_CFG(1));
 #else
 	mtk_m32(eth, 0xffff, 0x5555, MTK_GDMA_FWD_CFG(0));
 	mtk_m32(eth, 0xffff, 0x5555, MTK_GDMA_FWD_CFG(1));
+#endif
 #endif
 	return 0;
 }
