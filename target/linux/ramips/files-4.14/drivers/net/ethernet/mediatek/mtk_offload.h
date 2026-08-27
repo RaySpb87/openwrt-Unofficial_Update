@@ -138,11 +138,16 @@ struct mtk_foe_bind_info_blk {
 	u32 ka:1;		/* keep alive */
 	u32 vlan_layer:3;
 	u32 psn:1;		/* egress packet has PPPoE session */
+#ifdef CONFIG_SOC_MT7620
+	u32 dvp:1;		/* inform switch of keeping VPRI */
+	u32 drm:1;		/* inform switch of keeping DSCP */
+#else
 #ifdef CONFIG_RALINK
 	u32 vpm:2;		/* 0:ethertype remark, 1:0x8100(CR default) */
 #else
 	u32 vpm:1;		/* 0:ethertype remark, 1:0x8100(CR default) */
 	u32 ps:1;		/* packet sampling */
+#endif
 #endif
 	u32 cah:1;		/* cacheable flag */
 	u32 rmt:1;		/* remove tunnel ip header (6rd/dslite only) */
@@ -153,6 +158,19 @@ struct mtk_foe_bind_info_blk {
 	u32 sta:1;		/* static entry */
 } __attribute__ ((packed));
 
+#ifdef CONFIG_SOC_MT7620
+struct mtk_foe_info_blk2 {
+	u32 fpidx:4;		/* force egress switch port
+				   0-5:switch port, 6:force to CPU,
+				   8:no force port (use DA) */
+	u32 fp:1;		/* force egress port */
+	u32 up:3;		/* user priority */
+	u32 fdq:4;		/* switch default queue */
+	u32 port_mg:6;		/* port meter group */
+	u32 port_ag:6;		/* port account group */
+	u32 dscp:8;		/* DSCP value */
+} __attribute__ ((packed));
+#else
 struct mtk_foe_info_blk2 {
 	u32 qid:4;		/* QID in Qos Port */
 	u32 fqos:1;		/* force to PSE QoS port */
@@ -166,6 +184,7 @@ struct mtk_foe_info_blk2 {
 	u32 port_ag:6;		/* port account group */
 	u32 dscp:8;		/* DSCP value */
 } __attribute__ ((packed));
+#endif
 
 struct mtk_foe_ipv4_hnapt {
 	union {
