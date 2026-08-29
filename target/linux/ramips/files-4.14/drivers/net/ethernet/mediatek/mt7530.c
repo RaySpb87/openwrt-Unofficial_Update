@@ -35,6 +35,7 @@
 #include "mt7530.h"
 
 #define MT7530_CPU_PORT		6
+#define MT7530_PPE_PORT		7
 #define MT7530_NUM_PORTS	8
 #ifdef CONFIG_SOC_MT7621
 #define MT7530_NUM_VLANS	4095
@@ -527,6 +528,17 @@ mt7530_write_vlan_entry(struct mt7530_priv *priv, int vlan, u16 vid,
 		val |= (vid << 12);
 	}
 	mt7530_w32(priv, REG_ESW_VLAN_VTIM(vlan), val);
+
+	/*
+	 * The internal MT7620 eSwitch has an extra port (7) that is
+	 * wired to the PPE (packet processing engine). Whenever the hw
+	 * offload path is enabled, IPv4/IPv6 frames of the VLAN get
+	 * re-routed there via the per-port TPF registers, so this port
+	 * has to be a member of every VLAN that contains the CPU port,
+	 * otherwise those frames are dropped by the egress filter.
+	 */
+	if (ports & BIT(MT7530_CPU_PORT))
+		ports |= BIT(MT7530_PPE_PORT);
 #endif
 
 	/* vlan port membership */
