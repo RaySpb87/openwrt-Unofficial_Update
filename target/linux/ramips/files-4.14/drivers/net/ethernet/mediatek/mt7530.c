@@ -552,6 +552,12 @@ mt7530_write_vlan_entry(struct mt7530_priv *priv, int vlan, u16 vid,
 	/* egress mode */
 	val = 0;
 	for (port = 0; port < MT7530_NUM_PORTS; port++) {
+#ifndef CONFIG_SOC_MT7621
+		if (port == MT7530_PPE_PORT &&
+		    (ports & BIT(MT7530_PPE_PORT)))
+			val |= ETAG_CTRL_TAG << (port * 2);
+		else
+#endif
 		if (etags & BIT(port))
 			val |= ETAG_CTRL_TAG << (port * 2);
 		else
