@@ -1472,6 +1472,18 @@ fe_flow_offload(enum flow_offload_type type, struct flow_offload *flow,
 
 	priv = netdev_priv(src->dev);
 
+#ifdef CONFIG_SOC_MT7620
+	/*
+	 * MT7620 Variant 2 (SDK-model): the PPE builds UNBIND entries on its
+	 * own and the driver turns them into BIND from sample packets (RXD4
+	 * reason 0x0f/0x0e) in the netfilter POSTROUTING hook.  The software
+	 * hash-ADD wrote BIND entries at wrong hash slots and broke new
+	 * connections (see plan variant 2, issue G9), so refuse it here.
+	 */
+	if (type == FLOW_OFFLOAD_ADD)
+		return -EINVAL;
+#endif
+
 	return mtk_flow_offload(priv, type, flow, src, dest);
 }
 #endif
