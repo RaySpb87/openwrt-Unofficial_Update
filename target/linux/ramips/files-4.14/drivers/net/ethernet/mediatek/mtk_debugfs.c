@@ -99,6 +99,33 @@ static const struct file_operations mtk_ppe_debugfs_foe_fops = {
 	.release = single_release,
 };
 
+static int mtk_ppe_debugfs_rx_reasons_show(struct seq_file *m, void *private)
+{
+	int i;
+
+	for (i = 0; i < MTK_RX_REASON_CNT; i++)
+		seq_printf(m, "0x%02x %u\n", i, mtk_rx_reason_cnt[i]);
+
+	if (mtk_bind_hook_cnt)
+		seq_printf(m, "bind_hook %u\n", mtk_bind_hook_cnt);
+
+	return 0;
+}
+
+static int mtk_ppe_debugfs_rx_reasons_open(struct inode *inode,
+					   struct file *file)
+{
+	return single_open(file, mtk_ppe_debugfs_rx_reasons_show,
+			   file->private_data);
+}
+
+static const struct file_operations mtk_ppe_debugfs_rx_reasons_fops = {
+	.open = mtk_ppe_debugfs_rx_reasons_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 int mtk_ppe_debugfs_init(struct mtk_eth *eth)
 {
 	struct dentry *root;
@@ -110,6 +137,7 @@ int mtk_ppe_debugfs_init(struct mtk_eth *eth)
 		return -ENOMEM;
 
 	debugfs_create_file("all_entry", S_IRUGO, root, eth, &mtk_ppe_debugfs_foe_fops);
+	debugfs_create_file("rx_reasons", S_IRUGO, root, eth, &mtk_ppe_debugfs_rx_reasons_fops);
 
 	return 0;
 }
