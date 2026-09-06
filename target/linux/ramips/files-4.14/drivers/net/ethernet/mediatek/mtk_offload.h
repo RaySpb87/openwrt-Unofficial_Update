@@ -274,6 +274,57 @@ enum mtk_foe_cpu_reason {
 #define MTK_PPE_TBL_SZ			\
 			(MTK_PPE_ENTRY_CNT * sizeof(struct mtk_foe_entry))
 
+/* Per-RXD4-CPU-reason RX counters (5 bit reason, 32 entries), exposed via
+ * debugfs file "rx_reasons".  Useful to see which reasons the PPE sends to
+ * the CPU before/after binding (see plan variant 2, diagnostic stage). */
+#define MTK_RX_REASON_CNT		32
+extern u32 mtk_rx_reason_cnt[MTK_RX_REASON_CNT];
+
+/* BIND attempts performed by the netfilter POSTROUTING hook (MT7620 only). */
+extern u32 mtk_bind_hook_cnt;
+
+/*
+ * MT7620 Variant 2 skb->cb hint (SDK-style).  The PPE sends sample packets
+ * (CPU reason 0x0f = HIT_UNBIND_RATE_REACHED, 0x0e = HIT_UNBIND) carrying the
+ * FOE slot index in RXD4.FOE_ENTRY.  The RX path saves it here so the
+ * POSTROUTING hook can turn that slot into state=BIND without re-hashing.
+ *
+ * Offset 44 is past the IPCB area (struct inet_skb_parm, 24 bytes on MIPS32),
+ * the bridge input cb (8) and struct napi_gro_cb (~33 on MIPS32), so the hint
+ * survives GRO and the netdev-ingress SW fast-path until POSTROUTING.  A magic
+ * marker lets the consumers tell a valid hint from stale cb contents.
+ */
+#define MTK_HNAT_CB_OFFSET		44
+#define MTK_HNAT_CB_MAGIC		0x4d544b48	/* "MTHK" */
+#define MTK_HNAT_CB_MASK		0xfffff000
+
+static inline void
+mtk_offload_put_hint(struct sk_buff *skb, u32 idx)
+{
+	*(u32 *)&skb->cb[MTK_HNAT_CB_OFFSET] =
+		MTK_HNAT_CB_MAGIC | (idx & (MTK_PPE_ENTRY_CNT - 1));
+}
+
+static inline bool
+mtk_offload_skb_has_hint(const struct sk_buff *skb)
+{
+	return (*(u32 *)&skb->cb[MTK_HNAT_CB_OFFSET] & MTK_HNAT_CB_MASK) ==
+	       MTK_HNAT_CB_MAGIC;
+}
+
+static inline u32
+mtk_offload_get_hint(const struct sk_buff *skb)
+{
+	return *(u32 *)&skb->cb[MTK_HNAT_CB_OFFSET] &
+	       (MTK_PPE_ENTRY_CNT - 1);
+}
+
+static inline void
+mtk_offload_clear_hint(struct sk_buff *skb)
+{
+	*(u32 *)&skb->cb[MTK_HNAT_CB_OFFSET] = 0;
+}
+
 int mtk_ppe_debugfs_init(struct mtk_eth *eth);
 
 

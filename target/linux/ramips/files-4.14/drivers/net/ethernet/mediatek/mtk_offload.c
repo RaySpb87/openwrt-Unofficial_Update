@@ -14,6 +14,11 @@
 
 #ifdef CONFIG_SOC_MT7620
 #include "gsw_mt7620.h"
+#include <linux/if_vlan.h>
+#include <net/netfilter/nf_conntrack.h>
+#include <net/netfilter/nf_conntrack_core.h>
+#include <net/netfilter/nf_conntrack_tuple.h>
+#include <net/neighbour.h>
 #endif
 
 #define INVALID	0
@@ -23,6 +28,9 @@
 
 #define IPV4_HNAPT			0
 #define IPV4_HNAT			1
+
+u32 mtk_rx_reason_cnt[MTK_RX_REASON_CNT];
+u32 mtk_bind_hook_cnt;
 
 #ifdef CONFIG_SOC_MT7620
 /* MT7620 Frame Engine PPE block (RALINK_PPE_BASE = FE_BASE + 0xC00) */
@@ -632,9 +640,12 @@ static void mtk_offload_keepalive(struct fe_priv *eth, unsigned int hash)
 
 int mtk_offload_check_rx(struct fe_priv *eth, struct sk_buff *skb, u32 rxd4)
 {
+	u32 reason = FIELD_GET(MTK_RXD4_CPU_REASON, rxd4);
 	unsigned int hash;
 
-	switch (FIELD_GET(MTK_RXD4_CPU_REASON, rxd4)) {
+	mtk_rx_reason_cnt[reason]++;
+
+	switch (reason) {
 	case MTK_CPU_REASON_KEEPALIVE_UC_OLD_HDR:
 	case MTK_CPU_REASON_KEEPALIVE_MC_NEW_HDR:
 	case MTK_CPU_REASON_KEEPALIVE_DUP_OLD_HDR:
@@ -643,10 +654,145 @@ int mtk_offload_check_rx(struct fe_priv *eth, struct sk_buff *skb, u32 rxd4)
 		return -1;
 	case MTK_CPU_REASON_PACKET_SAMPLING:
 		return -1;
+#ifdef CONFIG_SOC_MT7620
+	case MTK_CPU_REASON_HIT_UNBIND_RATE_REACHED:
+	case MTK_CPU_REASON_HIT_UNBIND:
+		/*
+		 * MT7620 Variant 2 (SDK-model): pass the UNBIND sample to the
+		 * stack but remember the FOE slot index in skb->cb.  The
+		 * netfilter POSTROUTING hook binds the slot by index (that is
+		 * how the SDK turns PPE-built UNBIND entries into BIND).
+		 */
+		mtk_offload_put_hint(skb, FIELD_GET(MTK_RXD4_FOE_ENTRY, rxd4));
+		return 0;
+#endif
 	default:
 		return 0;
 	}
 }
+
+#ifdef CONFIG_SOC_MT7620
+/*
+ * MT7620 Variant 2: bind a PPE FOE slot from the sample packet.
+ *
+ * The skb carries the slot index in skb->cb (set by mtk_offload_check_rx).
+ * The conntrack tuples are already final here (the hook runs after NAT), so:
+ *   - the packet side (sip/dip/sport/dport)  = ct->tuplehash[dir]
+ *   - the translation (new_*)               = ct->tuplehash[!dir], reversed
+ * just like mtk_foe_prepare_v4() does for the SW path.
+ *
+ * Returns NF_DROP on success - per the SDK the sample is a duplicate, the
+ * PPE has already forwarded the original frame.  Every non-bindable case
+ * falls back to NF_ACCEPT so the packet is never lost.
+ */
+static struct mtk_eth *mtk_offload_eth;
+
+static unsigned int
+mtk_offload_bind_hook(void *priv, struct sk_buff *skb,
+		      const struct nf_hook_state *state)
+{
+	struct nf_conntrack_tuple *t_this, *t_other;
+	struct mtk_foe_entry *entry;
+	enum ip_conntrack_info ctinfo;
+	enum ip_conntrack_dir dir;
+	struct net_device *outdev;
+	struct neighbour *n;
+	struct dst_entry *dst;
+	struct nf_conn *ct;
+	u32 idx;
+
+	if (skb->protocol != htons(ETH_P_IP))
+		return NF_ACCEPT;
+
+	if (!mtk_offload_skb_has_hint(skb))
+		return NF_ACCEPT;
+
+	idx = mtk_offload_get_hint(skb);
+	mtk_offload_clear_hint(skb);
+
+	if (!mtk_offload_eth || !mtk_offload_eth->foe_table)
+		return NF_ACCEPT;
+
+	if (idx >= MTK_PPE_ENTRY_CNT)
+		return NF_ACCEPT;
+
+	ct = nf_ct_get(skb, &ctinfo);
+	if (!ct || nf_ct_is_untracked(ct) || nf_ct_is_dying(ct))
+		return NF_ACCEPT;
+
+	dst = skb_dst(skb);
+	if (!dst || !dst->dev)
+		return NF_ACCEPT;
+
+	outdev = dst->dev;
+
+	dir = CTINFO2DIR(ctinfo);
+	t_this = &ct->tuplehash[dir].tuple;
+	t_other = &ct->tuplehash[!dir].tuple;
+
+	if (t_this->dst.protonum != IPPROTO_TCP &&
+	    t_this->dst.protonum != IPPROTO_UDP)
+		return NF_ACCEPT;
+
+	/* The egress neighbor (far end of this flow) must already be resolved,
+	 * otherwise the PPE would forward with an empty destination MAC. */
+	n = dst_neigh_lookup(dst, &t_other->src.u3.ip);
+	if (!n || !(n->nud_state & NUD_VALID)) {
+		if (n)
+			neigh_release(n);
+		return NF_ACCEPT;
+	}
+
+	entry = &mtk_offload_eth->foe_table[idx];
+	memset(entry, 0, sizeof(*entry));
+
+	entry->ipv4_hnapt.etype = htons(ETH_P_IP);
+	entry->ipv4_hnapt.bfib1.pkt_type = IPV4_HNAPT;
+	entry->ipv4_hnapt.bfib1.ttl = 1;
+	entry->ipv4_hnapt.bfib1.cah = 1;
+	entry->ipv4_hnapt.bfib1.ka = 1;
+	entry->ipv4_hnapt.bfib1.dvp = 1;
+	entry->ipv4_hnapt.bfib1.drm = 1;
+	entry->ipv4_hnapt.bfib1.udp = (t_this->dst.protonum == IPPROTO_UDP);
+	entry->ipv4_hnapt.bfib1.time_stamp =
+		mtk_r32(mtk_offload_eth, 0x0010) & 0x7fff;
+	entry->ipv4_hnapt.iblk2.port_mg = 0x3f;
+	entry->ipv4_hnapt.iblk2.port_ag = 0x1f;
+	entry->ipv4_hnapt.iblk2.fpidx = 8;
+
+	entry->ipv4_hnapt.sip = ntohl(t_this->src.u3.ip);
+	entry->ipv4_hnapt.dip = ntohl(t_this->dst.u3.ip);
+	entry->ipv4_hnapt.sport = ntohs(t_this->src.u.tcp.port);
+	entry->ipv4_hnapt.dport = ntohs(t_this->dst.u.tcp.port);
+	entry->ipv4_hnapt.new_sip = ntohl(t_other->dst.u3.ip);
+	entry->ipv4_hnapt.new_dip = ntohl(t_other->src.u3.ip);
+	entry->ipv4_hnapt.new_sport = ntohs(t_other->dst.u.tcp.port);
+	entry->ipv4_hnapt.new_dport = ntohs(t_other->src.u.tcp.port);
+
+	mtk_foe_set_mac(entry, outdev->dev_addr, n->ha);
+	neigh_release(n);
+
+	if (is_vlan_dev(outdev)) {
+		entry->ipv4_hnapt.vlan1 = vlan_dev_priv(outdev)->vlan_id;
+		entry->ipv4_hnapt.bfib1.vlan_layer = 1;
+	}
+
+	entry->ipv4_hnapt.bfib1.state = BIND;
+
+	mtk_bind_hook_cnt++;
+
+	return NF_DROP;
+}
+
+static struct nf_hook_ops mtk_offload_bind_ops = {
+	.hook		= mtk_offload_bind_hook,
+	.pf		= NFPROTO_IPV4,
+	.hooknum	= NF_INET_POST_ROUTING,
+	/* after NAT (NF_IP_PRI_NAT_SRC = 100), so the conntrack tuples are
+	 * final and the packet 5-tuple already reflects the mapping */
+	.priority	= NF_IP_PRI_NAT_SRC + 10,
+};
+#endif
 
 int mtk_ppe_probe(struct mtk_eth *eth)
 {
@@ -660,10 +806,25 @@ int mtk_ppe_probe(struct mtk_eth *eth)
 	if (err)
 		return err;
 
+#ifdef CONFIG_SOC_MT7620
+	/*
+	 * Variant 2 bind: the PPE builds UNBIND entries by itself and samples
+	 * a packet to the CPU once the counters reach the rate limit.  That
+	 * sample (reason 0x0f/0x0e, FOE slot index in skb->cb) is bound here
+	 * in POSTROUTING and dropped (the PPE already forwarded the original).
+	 */
+	mtk_offload_eth = eth;
+	nf_register_hook(&mtk_offload_bind_ops);
+#endif
+
 	return 0;
 }
 
 void mtk_ppe_remove(struct mtk_eth *eth)
 {
+#ifdef CONFIG_SOC_MT7620
+	nf_unregister_hook(&mtk_offload_bind_ops);
+	mtk_offload_eth = NULL;
+#endif
 	mtk_ppe_stop(eth);
 }
