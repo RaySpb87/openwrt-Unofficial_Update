@@ -136,7 +136,7 @@ new file mode 100644
 index 00000000..2dbf50b5
 --- /dev/null
 +++ b/net/netfilter/xt_FLOWOFFLOAD.c
-@@ -0,0 +1,434 @@
+@@ -0,0 +1,440 @@
 +/*
 + * Copyright (C) 2018 Felix Fietkau <nbd@nbd.name>
 + *
@@ -177,11 +177,17 @@ index 00000000..2dbf50b5
 +	 * software fast-path - they must reach the driver's POSTROUTING
 +	 * bind hook, otherwise the flow is never bound in hardware. */
 +#define MTK_HNAT_CB_OFFSET	44
-+#define MTK_HNAT_CB_MAGIC	0x4d544b48
-+#define MTK_HNAT_CB_MASK	0xfffff000
-+	if ((*(u32 *)&skb->cb[MTK_HNAT_CB_OFFSET] & MTK_HNAT_CB_MASK) ==
-+	    MTK_HNAT_CB_MAGIC)
-+		return NF_ACCEPT;
++ 	/*
++ 	 * The driver stores the magic as a little-endian word, so the
++ 	 * bytes on the wire are 0x48 0x4b 0x54 0x4d.  Match them one by
++ 	 * one: a GCC MIPS build folds a type-punned 32-bit read from a
++ 	 * not-yet-written skb->cb into a constant and drops the check.
++ 	 */
++ 	if (skb->cb[MTK_HNAT_CB_OFFSET + 0] == 0x48 &&
++ 	    skb->cb[MTK_HNAT_CB_OFFSET + 1] == 0x4b &&
++ 	    skb->cb[MTK_HNAT_CB_OFFSET + 2] == 0x54 &&
++ 	    skb->cb[MTK_HNAT_CB_OFFSET + 3] == 0x4d)
++ 		return NF_ACCEPT;
 +#endif
 +	switch (skb->protocol) {
 +	case htons(ETH_P_IP):

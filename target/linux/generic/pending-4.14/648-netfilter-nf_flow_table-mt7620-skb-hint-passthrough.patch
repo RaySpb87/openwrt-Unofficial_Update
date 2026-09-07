@@ -1,7 +1,7 @@
 diff --git a/net/netfilter/nf_flow_table_ip.c b/net/netfilter/nf_flow_table_ip.c
 --- a/net/netfilter/nf_flow_table_ip.c
 +++ b/net/netfilter/nf_flow_table_ip.c
-@@ -225,7 +225,28 @@ nf_flow_offload_ip_hook(void *priv, struct sk_buff *skb,
+@@ -226,6 +226,33 @@ nf_flow_offload_ip_hook(void *priv, struct sk_buff *skb,
  	struct iphdr *iph;
  	__be32 nexthop;
  
@@ -19,10 +19,16 @@ diff --git a/net/netfilter/nf_flow_table_ip.c b/net/netfilter/nf_flow_table_ip.c
 +	 * and is matched inline - no cross-module dependency.
 +	 */
 +#define MTK_HNAT_CB_OFFSET	44
-+#define MTK_HNAT_CB_MAGIC	0x4d544b48
-+#define MTK_HNAT_CB_MASK	0xfffff000
-+	if ((*(u32 *)&skb->cb[MTK_HNAT_CB_OFFSET] & MTK_HNAT_CB_MASK) ==
-+	    MTK_HNAT_CB_MAGIC)
++	/*
++	 * The driver stores the magic as a little-endian word, so the
++	 * bytes on the wire are 0x48 0x4b 0x54 0x4d.  Match them one by
++	 * one: a GCC MIPS build folds a type-punned 32-bit read from a
++	 * not-yet-written skb->cb into a constant and drops the check.
++	 */
++	if (skb->cb[MTK_HNAT_CB_OFFSET + 0] == 0x48 &&
++	    skb->cb[MTK_HNAT_CB_OFFSET + 1] == 0x4b &&
++	    skb->cb[MTK_HNAT_CB_OFFSET + 2] == 0x54 &&
++	    skb->cb[MTK_HNAT_CB_OFFSET + 3] == 0x4d)
 +		return NF_ACCEPT;
 +#endif
 +
