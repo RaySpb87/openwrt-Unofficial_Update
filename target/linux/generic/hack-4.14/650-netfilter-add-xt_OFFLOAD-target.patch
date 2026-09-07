@@ -136,7 +136,7 @@ new file mode 100644
 index 00000000..2dbf50b5
 --- /dev/null
 +++ b/net/netfilter/xt_FLOWOFFLOAD.c
-@@ -0,0 +1,422 @@
+@@ -0,0 +1,434 @@
 +/*
 + * Copyright (C) 2018 Felix Fietkau <nbd@nbd.name>
 + *

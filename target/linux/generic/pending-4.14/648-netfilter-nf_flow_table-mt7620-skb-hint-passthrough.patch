@@ -1,7 +1,7 @@
 diff --git a/net/netfilter/nf_flow_table_ip.c b/net/netfilter/nf_flow_table_ip.c
 --- a/net/netfilter/nf_flow_table_ip.c
 +++ b/net/netfilter/nf_flow_table_ip.c
-@@ -206,7 +206,20 @@ nf_flow_offload_ip_hook(void *priv, struct sk_buff *skb,
+@@ -225,7 +225,28 @@ nf_flow_offload_ip_hook(void *priv, struct sk_buff *skb,
  	struct iphdr *iph;
  	__be32 nexthop;
  
