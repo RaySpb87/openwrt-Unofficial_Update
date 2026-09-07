@@ -18,6 +18,7 @@
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_core.h>
 #include <net/netfilter/nf_conntrack_tuple.h>
+#include <net/net_namespace.h>
 #include <net/neighbour.h>
 #endif
 
@@ -717,7 +718,7 @@ mtk_offload_bind_hook(void *priv, struct sk_buff *skb,
 		return NF_ACCEPT;
 
 	ct = nf_ct_get(skb, &ctinfo);
-	if (!ct || nf_ct_is_untracked(ct) || nf_ct_is_dying(ct))
+	if (!ct || nf_ct_is_dying(ct))
 		return NF_ACCEPT;
 
 	dst = skb_dst(skb);
@@ -814,7 +815,7 @@ int mtk_ppe_probe(struct mtk_eth *eth)
 	 * in POSTROUTING and dropped (the PPE already forwarded the original).
 	 */
 	mtk_offload_eth = eth;
-	nf_register_hook(&mtk_offload_bind_ops);
+	nf_register_net_hook(&init_net, &mtk_offload_bind_ops);
 #endif
 
 	return 0;
@@ -823,7 +824,7 @@ int mtk_ppe_probe(struct mtk_eth *eth)
 void mtk_ppe_remove(struct mtk_eth *eth)
 {
 #ifdef CONFIG_SOC_MT7620
-	nf_unregister_hook(&mtk_offload_bind_ops);
+	nf_unregister_net_hook(&init_net, &mtk_offload_bind_ops);
 	mtk_offload_eth = NULL;
 #endif
 	mtk_ppe_stop(eth);
