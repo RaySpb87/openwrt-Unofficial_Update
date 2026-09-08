@@ -497,6 +497,9 @@ struct fe_priv {
 	struct mtk_foe_entry		*foe_table;
 	dma_addr_t			foe_table_phys;
 	struct flow_offload __rcu	**foe_flow_table;
+#ifdef CONFIG_SOC_MT7620
+	struct timer_list		sma_restore_timer;
+#endif
 };
 
 extern const struct of_device_id of_fe_match[];

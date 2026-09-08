@@ -109,6 +109,7 @@ mtk_w32(struct mtk_eth *eth, u32 val, u32 reg)
 #define   MTK_PPE_TB_CFG_UNBD_AGE		BIT(8)
 #define   MTK_PPE_TB_CFG_NTU_AGE		BIT(7)
 #define   MTK_PPE_TB_CFG_SMA_FWD_CPU		(0x3 << 4)
+#define   MTK_PPE_TB_CFG_SMA_ONLY_FWD_CPU	(0x2 << 4)
 #define   MTK_PPE_TB_CFG_SMA_MASK		(0x3 << 4)
 #define   MTK_PPE_TB_CFG_ENTRY_SZ_64B		0
 #define   MTK_PPE_TB_CFG_ENTRY_SZ_MASK		BIT(3)
@@ -282,6 +283,9 @@ extern u32 mtk_rx_reason_cnt[MTK_RX_REASON_CNT];
 
 /* BIND attempts performed by the netfilter POSTROUTING hook (MT7620 only). */
 extern u32 mtk_bind_hook_cnt;
+
+/* DEL-path invalidation counter — how many times the cleanup ran. */
+extern u32 mtk_del_cleanup_cnt;
 
 /*
  * MT7620 Variant 2 skb->cb hint (SDK-style).  The PPE sends sample packets

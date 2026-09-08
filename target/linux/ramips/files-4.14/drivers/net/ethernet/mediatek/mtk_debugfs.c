@@ -109,6 +109,9 @@ static int mtk_ppe_debugfs_rx_reasons_show(struct seq_file *m, void *private)
 	if (mtk_bind_hook_cnt)
 		seq_printf(m, "bind_hook %u\n", mtk_bind_hook_cnt);
 
+	if (mtk_del_cleanup_cnt)
+		seq_printf(m, "del_cleanup %u\n", mtk_del_cleanup_cnt);
+
 	return 0;
 }
 

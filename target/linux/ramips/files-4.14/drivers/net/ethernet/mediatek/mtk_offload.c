@@ -32,6 +32,7 @@
 
 u32 mtk_rx_reason_cnt[MTK_RX_REASON_CNT];
 u32 mtk_bind_hook_cnt;
+u32 mtk_del_cleanup_cnt;
 
 #ifdef CONFIG_SOC_MT7620
 /* MT7620 Frame Engine PPE block (RALINK_PPE_BASE = FE_BASE + 0xC00) */
@@ -237,6 +238,33 @@ mtk_foe_write(struct mtk_eth *eth, u32 hash,
 	memcpy(&table[hash], entry, sizeof(*entry));
 }
 
+#ifdef CONFIG_SOC_MT7620
+/*
+ * Flush PPE FOE cache — same mechanism as SDK hnat_cache_ebl().
+ * Toggle CAH_X_MODE to reset the cache FSM, then leave CAH_EN as-is.
+ */
+static void mtk_ppe_flush_cache(struct mtk_eth *eth)
+{
+	mtk_m32(eth, 0, MTK_PPE_CAH_CTRL_X_MODE, MTK_REG_PPE_CAH_CTRL);
+	mtk_m32(eth, MTK_PPE_CAH_CTRL_X_MODE, 0, MTK_REG_PPE_CAH_CTRL);
+}
+
+/*
+ * Timer callback: restore SMA to SMA_FWD_CPU_BUILD_ENTRY after a DEL-path
+ * mutation.  While SMA is SMA_ONLY_FWD_CPU the PPE will not create new
+ * UNBIND entries — new connections would not be offloaded.
+ *
+ * Modeled after SDK hnat_sma_build_entry().
+ */
+static void mtk_sma_restore_timer_fn(struct timer_list *t)
+{
+	struct mtk_eth *eth = from_timer(eth, t, sma_restore_timer);
+
+	mtk_m32(eth, MTK_PPE_TB_CFG_SMA_MASK,
+		MTK_PPE_TB_CFG_SMA_FWD_CPU, MTK_REG_PPE_TB_CFG);
+}
+#endif
+
 int mtk_flow_offload(struct mtk_eth *eth,
 		     enum flow_offload_type type,
 		     struct flow_offload *flow,
@@ -260,8 +288,41 @@ int mtk_flow_offload(struct mtk_eth *eth,
 		return -EINVAL;
 	
 	if (type == FLOW_OFFLOAD_DEL) {
-		flow = NULL;
+#ifdef CONFIG_SOC_MT7620
+		struct mtk_foe_entry *table =
+			(struct mtk_foe_entry *)eth->foe_table;
+		u32 stamp = mtk_r32(eth, 0x0010) & 0x7fff;
+
+		ohash = mtk_flow_hash_v4(otuple);
+		rhash = mtk_flow_hash_v4(rtuple);
+
+		/*
+		 * SDK pattern (hnat_disable_hook / foe_clear_all_bind_entries):
+		 * 1. Stop PPE from building new entries during mutation
+		 * 2. Invalidate the two FOE slots
+		 * 3. Flush the PPE cache so it sees the INVALID state
+		 * 4. Restore SMA after 3 s via timer
+		 */
+		mtk_m32(eth, MTK_PPE_TB_CFG_SMA_MASK,
+			MTK_PPE_TB_CFG_SMA_ONLY_FWD_CPU,
+			MTK_REG_PPE_TB_CFG);
+
+		table[ohash].bfib1.state = FOE_STATE_INVALID;
+		table[ohash].bfib1.time_stamp = stamp;
+		table[rhash].bfib1.state = FOE_STATE_INVALID;
+		table[rhash].bfib1.time_stamp = stamp;
+
+		rcu_assign_pointer(eth->foe_flow_table[ohash], NULL);
+		rcu_assign_pointer(eth->foe_flow_table[rhash], NULL);
+
+		mtk_ppe_flush_cache(eth);
+
+		mod_timer(&eth->sma_restore_timer, jiffies + 3 * HZ);
+
+		mtk_del_cleanup_cnt++;
+
 		synchronize_rcu();
+#endif
 		return 0;
 	}
 
@@ -808,6 +869,7 @@ int mtk_ppe_probe(struct mtk_eth *eth)
 		return err;
 
 #ifdef CONFIG_SOC_MT7620
+	timer_setup(&eth->sma_restore_timer, mtk_sma_restore_timer_fn, 0);
 	/*
 	 * Variant 2 bind: the PPE builds UNBIND entries by itself and samples
 	 * a packet to the CPU once the counters reach the rate limit.  That
@@ -824,6 +886,7 @@ int mtk_ppe_probe(struct mtk_eth *eth)
 void mtk_ppe_remove(struct mtk_eth *eth)
 {
 #ifdef CONFIG_SOC_MT7620
+	del_timer_sync(&eth->sma_restore_timer);
 	nf_unregister_net_hook(&init_net, &mtk_offload_bind_ops);
 	mtk_offload_eth = NULL;
 #endif
