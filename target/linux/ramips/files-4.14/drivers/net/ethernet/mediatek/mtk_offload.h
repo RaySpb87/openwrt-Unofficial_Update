@@ -293,40 +293,65 @@ extern u32 mtk_del_cleanup_cnt;
  * FOE slot index in RXD4.FOE_ENTRY.  The RX path saves it here so the
  * POSTROUTING hook can turn that slot into state=BIND without re-hashing.
  *
- * Offset 44 is past the IPCB area (struct inet_skb_parm, 24 bytes on MIPS32),
- * the bridge input cb (8) and struct napi_gro_cb (~33 on MIPS32), so the hint
+ * Offset 44 is past the IPCB area (struct inet_skb_parm, ~28 bytes on MIPS32),
+ * the bridge input cb (8) and struct napi_gro_cb (~36 on MIPS32), so the hint
  * survives GRO and the netdev-ingress SW fast-path until POSTROUTING.  A magic
  * marker lets the consumers tell a valid hint from stale cb contents.
+ *
+ * IMPORTANT: the hint must be read and written as individual bytes, never as
+ * *(u32 *)&skb->cb[44].  GCC 7.5 for MIPS at -O2 treats the type-punned read of
+ * the char cb[] area as an access to an object whose content is "known" and
+ * folds `*(u32 *)... & 0xfffff000 == 0x4d544b48` to a constant false, deleting
+ * the whole mtk_offload_bind_hook() body (it shipped as `jr ra; li v0,1`, i.e.
+ * plain return NF_ACCEPT).  Byte-wise access is well-defined and must be kept.
+ * See also the identical fix in the netfilter flowtable passthrough patches
+ * (generic/patches-4.14, "skb-hint passthrough") and commit 55b054c7f5.
  */
 #define MTK_HNAT_CB_OFFSET		44
 #define MTK_HNAT_CB_MAGIC		0x4d544b48	/* "MTHK" */
-#define MTK_HNAT_CB_MASK		0xfffff000
 
 static inline void
 mtk_offload_put_hint(struct sk_buff *skb, u32 idx)
 {
-	*(u32 *)&skb->cb[MTK_HNAT_CB_OFFSET] =
-		MTK_HNAT_CB_MAGIC | (idx & (MTK_PPE_ENTRY_CNT - 1));
+	u32 v = MTK_HNAT_CB_MAGIC | (idx & (MTK_PPE_ENTRY_CNT - 1));
+	unsigned char *cb = skb->cb + MTK_HNAT_CB_OFFSET;
+
+	cb[0] = v >>  0;
+	cb[1] = v >>  8;
+	cb[2] = v >> 16;
+	cb[3] = v >> 24;
 }
 
 static inline bool
 mtk_offload_skb_has_hint(const struct sk_buff *skb)
 {
-	return (*(u32 *)&skb->cb[MTK_HNAT_CB_OFFSET] & MTK_HNAT_CB_MASK) ==
-	       MTK_HNAT_CB_MAGIC;
+	const unsigned char *cb = skb->cb + MTK_HNAT_CB_OFFSET;
+
+	return cb[0] == ((MTK_HNAT_CB_MAGIC >>  0) & 0xff) &&
+	       cb[1] == ((MTK_HNAT_CB_MAGIC >>  8) & 0xff) &&
+	       cb[2] == ((MTK_HNAT_CB_MAGIC >> 16) & 0xff) &&
+	       cb[3] == ((MTK_HNAT_CB_MAGIC >> 24) & 0xff);
 }
 
 static inline u32
 mtk_offload_get_hint(const struct sk_buff *skb)
 {
-	return *(u32 *)&skb->cb[MTK_HNAT_CB_OFFSET] &
-	       (MTK_PPE_ENTRY_CNT - 1);
+	const unsigned char *cb = skb->cb + MTK_HNAT_CB_OFFSET;
+	u32 v = ((u32)cb[3] << 24) | ((u32)cb[2] << 16) |
+		((u32)cb[1] << 8) | cb[0];
+
+	/* Drop the MTK_HNAT_CB_MAGIC marker: if the full word leaked through,
+	 * idx >= MTK_PPE_ENTRY_CNT would be statically true for the compiler
+	 * and the whole bind tail would be folded away again. */
+	return v & (MTK_PPE_ENTRY_CNT - 1);
 }
 
 static inline void
 mtk_offload_clear_hint(struct sk_buff *skb)
 {
-	*(u32 *)&skb->cb[MTK_HNAT_CB_OFFSET] = 0;
+	unsigned char *cb = skb->cb + MTK_HNAT_CB_OFFSET;
+
+	cb[0] = cb[1] = cb[2] = cb[3] = 0;
 }
 
 int mtk_ppe_debugfs_init(struct mtk_eth *eth);

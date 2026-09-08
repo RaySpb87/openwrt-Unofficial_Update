@@ -724,9 +724,14 @@ int mtk_offload_check_rx(struct fe_priv *eth, struct sk_buff *skb, u32 rxd4)
 		 * stack but remember the FOE slot index in skb->cb.  The
 		 * netfilter POSTROUTING hook binds the slot by index (that is
 		 * how the SDK turns PPE-built UNBIND entries into BIND).
+		 *
+		 * Return 1 so the caller delivers this skb without GRO: the
+		 * hint in skb->cb must reach POSTROUTING untouched (returning
+		 * 0 would route it through napi_gro_receive(), which may merge
+		 * the frame and drop the hint with it).
 		 */
 		mtk_offload_put_hint(skb, FIELD_GET(MTK_RXD4_FOE_ENTRY, rxd4));
-		return 0;
+		return 1;
 #endif
 	default:
 		return 0;

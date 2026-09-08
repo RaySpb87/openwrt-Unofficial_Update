@@ -871,6 +871,9 @@ static int fe_poll_rx(struct napi_struct *napi, int budget,
 	struct fe_rx_ring *ring = &priv->rx_ring;
 	int idx = ring->rx_calc_idx;
 	u32 checksum_bit;
+#ifdef CONFIG_NET_MEDIATEK_OFFLOAD
+	int ret;
+#endif
 	struct sk_buff *skb;
 	u8 *data, *new_data;
 	struct fe_rx_dma *rxd, trxd;
@@ -939,11 +942,22 @@ static int fe_poll_rx(struct napi_struct *napi, int budget,
 					       RX_DMA_VID(trxd.rxd3));
 
 #ifdef CONFIG_NET_MEDIATEK_OFFLOAD
-		if (mtk_offload_check_rx(priv, skb, trxd.rxd4) == 0) {
+		ret = mtk_offload_check_rx(priv, skb, trxd.rxd4);
+		if (ret >= 0) {
 #endif
 			stats->rx_packets++;
 			stats->rx_bytes += pktlen;
 
+#ifdef CONFIG_NET_MEDIATEK_OFFLOAD
+			if (ret > 0)
+				/* PPE sample (MT7620 0x0e/0x0f): deliver without
+				 * GRO so the skb->cb FOE hint survives intact to
+				 * the POSTROUTING bind hook (GRO may merge the
+				 * frame and drop the hint).  Samples are rate
+				 * limited by the PPE, so the cost is negligible. */
+				netif_receive_skb(skb);
+			else
+#endif
 			napi_gro_receive(napi, skb);
 #ifdef CONFIG_NET_MEDIATEK_OFFLOAD
 		} else {

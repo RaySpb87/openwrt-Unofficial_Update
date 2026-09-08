@@ -529,6 +529,9 @@ int mtk_flow_offload(struct fe_priv *eth,
 		     struct flow_offload *flow,
 		     struct flow_offload_hw_path *src,
 		     struct flow_offload_hw_path *dest);
+/* returns: <0 = drop skb, 0 = pass to napi_gro_receive, >0 = pass to
+ * netif_receive_skb (skb carries a PPE sample hint in skb->cb that must
+ * survive to the POSTROUTING bind hook) */
 int mtk_offload_check_rx(struct fe_priv *eth, struct sk_buff *skb, u32 rxd4);
 
 
