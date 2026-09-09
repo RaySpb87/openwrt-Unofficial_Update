@@ -786,8 +786,15 @@ int mtk_offload_check_rx(struct fe_priv *eth, struct sk_buff *skb, u32 rxd4)
  * lost the hint in skb->cb[44] before POSTROUTING).  The hash matches the
  * PPE hardware hash (MODE1, same seed), so it finds the slot the PPE created.
  *
- * Returns NF_DROP on success (the PPE already forwarded the original frame).
- * Every non-bindable case falls back to NF_ACCEPT so the packet is never lost.
+ * NB: this hook fires for EVERY IPv4 TCP/UDP packet, not just samples.  The
+ * bind is performed unconditionally (hash-based lookup cannot tell a genuine
+ * SDIC sample from a real forwarded frame), but NF_DROP is returned ONLY for
+ * packets that still carry the cb-hint (a real duplicate — the PPE already
+ * sent the original frame to its destination port).  All other packets must
+ * continue through the stack: dropping them kills every new flow whose far
+ * end is a directly-connected/on-link host (e.g. the WAN gateway, which
+ * passes dst_neigh_lookup via ARP) — that is exactly the "can't reach the
+ * upstream router" regression introduced by returning NF_DROP unconditionally.
  */
 static struct mtk_eth *mtk_offload_eth;
 
@@ -930,7 +937,17 @@ mtk_offload_bind_hook(void *priv, struct sk_buff *skb,
 	mtk_sdk_hash_match_cnt++;
 	mtk_bind_hook_cnt++;
 
-	return NF_DROP;
+	/*
+	 * Drop only genuine SDIC samples: cb-hint survives only for the few
+	 * rate-limited samples (the PPE duplicated the original frame to the
+	 * destination port), so this never loses real traffic.  All other
+	 * bound packets (the 99%+ that lost the hint) are the real frames and
+	 * must be forwarded by software.
+	 */
+	if (mtk_offload_skb_has_hint(skb))
+		return NF_DROP;
+
+	return NF_ACCEPT;
 }
 
 static struct nf_hook_ops mtk_offload_bind_ops = {
