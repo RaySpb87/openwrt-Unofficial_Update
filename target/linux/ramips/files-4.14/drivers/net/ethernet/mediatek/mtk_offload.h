@@ -293,6 +293,16 @@ extern u32 mtk_bind_gate_cnt[MTK_BIND_GATE_CNT];
 /* DEL-path invalidation counter — how many times the cleanup ran. */
 extern u32 mtk_del_cleanup_cnt;
 
+/* SDK-style bind diagnostic counters. */
+extern u32 mtk_sdk_bind_fwd_cnt;       /* forwarded packets entering hook */
+extern u32 mtk_sdk_bind_local_cnt;     /* local OUTPUT packets entering hook */
+extern u32 mtk_sdk_hash_hit_cnt;       /* foe_table[hash] accessed */
+extern u32 mtk_sdk_hash_unbind_cnt;    /* state == UNBIND */
+extern u32 mtk_sdk_hash_match_cnt;     /* tuples match → successful bind */
+extern u32 mtk_sdk_hash_mismatch_cnt;  /* state UNBIND but tuples differ */
+extern u32 mtk_sdk_hash_not_unbind_cnt;/* state != UNBIND (INVALID/BIND/FIN) */
+extern u32 mtk_sdk_neigh_fail_cnt;     /* dst_neigh_lookup failed */
+
 /*
  * MT7620 Variant 2 skb->cb hint (SDK-style).  The PPE sends sample packets
  * (CPU reason 0x0f = HIT_UNBIND_RATE_REACHED, 0x0e = HIT_UNBIND) carrying the

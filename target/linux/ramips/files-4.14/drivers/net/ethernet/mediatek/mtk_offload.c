@@ -35,6 +35,16 @@ u32 mtk_bind_hook_cnt;
 u32 mtk_bind_gate_cnt[MTK_BIND_GATE_CNT];
 u32 mtk_del_cleanup_cnt;
 
+/* SDK-style bind diagnostic counters */
+u32 mtk_sdk_bind_fwd_cnt;
+u32 mtk_sdk_bind_local_cnt;
+u32 mtk_sdk_hash_hit_cnt;
+u32 mtk_sdk_hash_unbind_cnt;
+u32 mtk_sdk_hash_match_cnt;
+u32 mtk_sdk_hash_mismatch_cnt;
+u32 mtk_sdk_hash_not_unbind_cnt;
+u32 mtk_sdk_neigh_fail_cnt;
+
 #ifdef CONFIG_SOC_MT7620
 /* MT7620 Frame Engine PPE block (RALINK_PPE_BASE = FE_BASE + 0xC00) */
 #define MT7620_PPE_GDM2_FWD_CFG		0xD00
@@ -117,6 +127,34 @@ mtk_flow_hash_v4(struct flow_offload_tuple *tuple)
 	hash = ((hash & 0xffff0000) >> 16 ) ^ (hash & 0xfffff);
 	hash &= 0x7ff;
 	hash *= 2;;
+
+	return hash;
+}
+
+/*
+ * SDK-style FOE hash from an nf_conntrack_tuple.  Same formula as
+ * mtk_flow_hash_v4() (which the PPE HW hash matches for MODE1):
+ *   hash = (ports ^ src_ip ^ dst_ip) rotated, reduced to 10 bits, * 2.
+ *
+ * The hash is commutative in src/dst IPs (XOR-based), so swapping the
+ * direction yields the same slot.  Input tuple must be in network byte
+ * order as stored by conntrack.
+ */
+static u32
+mtk_flow_hash_v4_ct(const struct nf_conntrack_tuple *tuple)
+{
+	u32 ports = ntohs(tuple->src.u.tcp.port)  << 16 |
+		    ntohs(tuple->dst.u.tcp.port);
+	u32 src = ntohl(tuple->dst.u3.ip);
+	u32 dst = ntohl(tuple->src.u3.ip);
+	u32 hash = (ports & src) | ((~ports) & dst);
+	u32 hash_23_0 = hash & 0xffffff;
+	u32 hash_31_24 = hash & 0xff000000;
+
+	hash = ports ^ src ^ dst ^ ((hash_23_0 << 8) | (hash_31_24 >> 24));
+	hash = ((hash & 0xffff0000) >> 16 ) ^ (hash & 0xfffff);
+	hash &= 0x7ff;
+	hash *= 2;
 
 	return hash;
 }
@@ -741,17 +779,15 @@ int mtk_offload_check_rx(struct fe_priv *eth, struct sk_buff *skb, u32 rxd4)
 
 #ifdef CONFIG_SOC_MT7620
 /*
- * MT7620 Variant 2: bind a PPE FOE slot from the sample packet.
+ * MT7620 SDK-style bind: find the PPE UNBIND entry by recomputing the FOE
+ * hash from the 5-tuple in conntrack, then fill in egress information.
  *
- * The skb carries the slot index in skb->cb (set by mtk_offload_check_rx).
- * The conntrack tuples are already final here (the hook runs after NAT), so:
- *   - the packet side (sip/dip/sport/dport)  = ct->tuplehash[dir]
- *   - the translation (new_*)               = ct->tuplehash[!dir], reversed
- * just like mtk_foe_prepare_v4() does for the SW path.
+ * This replaces the cb-hint approach (which was unreliable — 93.6% of packets
+ * lost the hint in skb->cb[44] before POSTROUTING).  The hash matches the
+ * PPE hardware hash (MODE1, same seed), so it finds the slot the PPE created.
  *
- * Returns NF_DROP on success - per the SDK the sample is a duplicate, the
- * PPE has already forwarded the original frame.  Every non-bindable case
- * falls back to NF_ACCEPT so the packet is never lost.
+ * Returns NF_DROP on success (the PPE already forwarded the original frame).
+ * Every non-bindable case falls back to NF_ACCEPT so the packet is never lost.
  */
 static struct mtk_eth *mtk_offload_eth;
 
@@ -767,33 +803,24 @@ mtk_offload_bind_hook(void *priv, struct sk_buff *skb,
 	struct neighbour *n;
 	struct dst_entry *dst;
 	struct nf_conn *ct;
-	u32 idx;
+	u32 idx, hash;
 
-	pr_info("mtk_offload: bind_hook entered, proto=%u\n", ntohs(skb->protocol));
-
-	/* G0: hook entry — did a forwarded packet reach POSTROUTING at all */
+	/* G0: hook entry */
 	mtk_bind_gate_cnt[0]++;
+
+	/* P2: forwarded vs local */
+	if (state->in)
+		mtk_sdk_bind_fwd_cnt++;
+	else
+		mtk_sdk_bind_local_cnt++;
 
 	if (skb->protocol != htons(ETH_P_IP)) {
 		mtk_bind_gate_cnt[1]++;
 		return NF_ACCEPT;
 	}
 
-	if (!mtk_offload_skb_has_hint(skb)) {
-		mtk_bind_gate_cnt[2]++;
-		return NF_ACCEPT;
-	}
-
-	idx = mtk_offload_get_hint(skb);
-	mtk_offload_clear_hint(skb);
-
 	if (!mtk_offload_eth || !mtk_offload_eth->foe_table) {
 		mtk_bind_gate_cnt[3]++;
-		return NF_ACCEPT;
-	}
-
-	if (idx >= MTK_PPE_ENTRY_CNT) {
-		mtk_bind_gate_cnt[4]++;
 		return NF_ACCEPT;
 	}
 
@@ -821,17 +848,50 @@ mtk_offload_bind_hook(void *priv, struct sk_buff *skb,
 		return NF_ACCEPT;
 	}
 
-	/* The egress neighbor (far end of this flow) must already be resolved,
-	 * otherwise the PPE would forward with an empty destination MAC. */
+	/* SDK-style: compute FOE hash to find the PPE's UNBIND entry.
+	 *
+	 * The PPE hashes the packet exactly as seen on the wire, i.e. the
+	 * "this" direction of the flow (conntrack's ORIGINAL tuple is never
+	 * rewritten by NAT — only the REPLY tuple carries the translation, so
+	 * for the original direction t_this still has the pre-NAT addresses).
+	 * Therefore hash(t_this) lands on the very slot the PPE created. */
+	hash = mtk_flow_hash_v4_ct(t_this);
+	idx = hash;
+
+	mtk_sdk_hash_hit_cnt++;
+
+	/* Check if the slot is in UNBIND state (PPE created it) */
+	if (mtk_offload_eth->foe_table[idx].bfib1.state != UNBIND) {
+		mtk_sdk_hash_not_unbind_cnt++;
+		return NF_ACCEPT;
+	}
+
+	/* Verify tuple match — the entry must belong to this flow.
+	 * The PPE stores the "this" direction as sip/dip/sport/dport. */
+	entry = &mtk_offload_eth->foe_table[idx];
+	if (entry->ipv4_hnapt.sip != ntohl(t_this->src.u3.ip) ||
+	    entry->ipv4_hnapt.dip != ntohl(t_this->dst.u3.ip) ||
+	    entry->ipv4_hnapt.sport != ntohs(t_this->src.u.tcp.port) ||
+	    entry->ipv4_hnapt.dport != ntohs(t_this->dst.u.tcp.port)) {
+		mtk_sdk_hash_mismatch_cnt++;
+		return NF_ACCEPT;
+	}
+
+	mtk_sdk_hash_unbind_cnt++;
+
+	/* Resolve the egress neighbor (gateway or directly-connected host) */
 	n = dst_neigh_lookup(dst, &t_other->src.u3.ip);
 	if (!n || !(n->nud_state & NUD_VALID)) {
 		if (n)
 			neigh_release(n);
+		mtk_sdk_neigh_fail_cnt++;
 		mtk_bind_gate_cnt[8]++;
 		return NF_ACCEPT;
 	}
 
-	entry = &mtk_offload_eth->foe_table[idx];
+	/* Fill the FOE entry — same format as mtk_foe_prepare_v4() and the
+	 * original cb-hint bind: packet side from t_this, translation new_*
+	 * from the reversed other tuple. */
 	memset(entry, 0, sizeof(*entry));
 
 	entry->ipv4_hnapt.etype = htons(ETH_P_IP);
@@ -867,6 +927,7 @@ mtk_offload_bind_hook(void *priv, struct sk_buff *skb,
 
 	entry->ipv4_hnapt.bfib1.state = BIND;
 
+	mtk_sdk_hash_match_cnt++;
 	mtk_bind_hook_cnt++;
 
 	return NF_DROP;

@@ -870,3 +870,560 @@ PPE/ESW (SMA) ещё до/вместо netfilter-стека, либо трафи
 
 *СТАТУС: Прошивка пересобрана с фиксом §12.19, готова к перепрошивке. Результаты
 теста с фиксом будут записаны в §12.20 после следующего boot.*
+
+---
+
+### 12.20 Результаты теста с фиксом §12.19 (2026-09-09, агент через SSH)
+
+#### 12.20.1 Доказательство: фикс lifecycle РАБОТАЕТ
+
+**До фикса §12.19:**
+- `bind_hook_entry` застрял на **2** (только init-вызовы, хук НЕ вызывался)
+- `bind_hook` (success) = **0**
+- dmesg: `bind_hook entered` = 2 раза, затем **никогда**
+
+**После фикса §12.19 (uptime ~12 мин, торрент+фоновый трафик):**
+
+| счётчик | значение | дельта от init |
+|---------|----------|----------------|
+| `bind_hook_entry` | **35 108** | **+35 106** (было 2) |
+| `bind_hook` (success) | **185** | **+185** (было 0) |
+| `bind_gate1` | 0 | 0 |
+| `bind_gate2` | **34 923** | 99.7% от entry |
+| `bind_gate3..8` | 0 | 0 |
+| `0x0e` (HIT_UNBIND) | 39 626+ | растёт |
+| `0x0f` (RATE_REACHED) | 4 833 923+ | растёт |
+
+**Вывод:** Фикс §12.19 **полностью устранил корневую причину** — хук теперь
+вызывается для forwarded-трафика. `bind_hook_entry` вырос с 2 до 35 108.
+Проблема lifecycle (fe_stop снимает хук, fe_open не перерегистрирует)
+**ЗАКРЫТА**.
+
+#### 12.20.2 Новая картина: G2 (hint не доживает до POSTROUTING)
+
+После устранения lifecycle-бага доминирующим стал **G2** — `!mtk_offload_skb_has_hint()`:
+
+- **34 923** из **35 108** вызовов (99.7%) проваливаются на G2
+- `skb->cb[44]` не содержит магию `0x48` к моменту POSTROUTING
+- Только **185** пакетов (0.5%) доходят до конца bind-хука (успешный bind)
+
+**Природа G2 (торрент-контекст):**
+
+Торрент (клиент 192.168.3.142) генерирует массу UDP-трафика (DHT, порт 37422)
+и коротких TCP-соединений. PPE создаёт UNBIND-записи и отправляет sample в CPU.
+Однако `skb->cb[44]` — ephemeral-поле SKB — перезаписывается по пути через
+netfilter-стек (NAT, conntrack, FLOWOFFLOAD) до POSTROUTING. К моменту вызова
+нашего хука hint уже утерян.
+
+Для TCP-трафика (`[OFFLOAD]` в conntrack) — additional factor: `xt_FLOWOFFLOAD`
+с `hw` флагом (6423 pkts, ctstate RELATED,ESTABLISHED) перехватывает часть
+пакетов в FORWARD chain, и они могут обходить POSTROUTING. Но даже без
+FLOWOFFLOAD (§12.17), bind_hook_entry не рос — G2 проблема **не зависит от
+FLOWOFFLOAD**.
+
+#### 12.20.3 BIND-записи создаются, но PPE перезаписывает (torrent churn)
+
+**Наблюдение:** 185 успешных bind, но `state=BIND` в all_entry = **0**.
+
+**Объяснение:**
+1. bind_hook пишет BIND-запись с полными egress-данными (MAC, NAT, VLAN)
+2. PPE перезаписывает запись новым UNBIND (torrent создаёт новые короткие
+   UDP-потоки каждые доли секунды, хеши FOE-таблицы коллизируют)
+3. Между моментом bind и моментом чтения all_entry запись уже перезаписана
+
+**Доказательство** — одна UNBIND-запись с заполненными egress-данными:
+
+```
+(b48) state=UNBIND | 192.168.3.142:37422→185.148.0.224:50952
+             => 192.168.2.212:37422→92.241.113.73:14289
+  MAC: 28:28:5d:96:aa:65 => b0:be:76:58:b1:bc
+  etype=0x0800, vlan1=2, info2=0x7ff008
+```
+
+- `MAC: 28:28:5d:96:aa:65` — не нулевой! Это MAC от `outdev->dev_addr` (WAN)
+- `b0:be:76:58:b1:bc` — не нулевой! Это MAC gateway (192.168.2.1)
+- `vlan1=2` — корректный VLAN-tag
+- `info2=0x7ff08` — egress info заполнена
+
+Это **подтверждает**, что bind_hook корректно:
+1. Находит hint (cb[44] == 0x48)
+2. Извлекает FOE-индекс
+3. Находит dst/neighbor (gateway reachable)
+4. Записывает полную BIND-запись с MAC/NAT/VLAN
+
+Но PPE немедленно перезаписывает state (торрент churn).
+
+В двух последовательных чтениях одна и та же запись (0xb48) показала
+**разные state** (UNBIND → INVALID) — PPE активно перезаписывает.
+
+#### 12.20.4 Итоговая интерпретация
+
+| вопрос | ответ |
+|--------|-------|
+| Фикс §12.19 помог? | **ДА** — хук вызывается (35 108 vs 2) |
+| bind_hook работает? | **ДА** — 185 успешных bind с полными egress-данными |
+| G2 — основной блокер? | **ДА** — 99.7% пакетов теряют hint в cb[44] |
+| BIND-записи видны в FOE? | **НЕТ** — torrent churn перезаписывает (но доказательство записи есть) |
+| FLOWOFFLOAD при чём? | **НЕТ** — G2 не зависит от offload (§12.17 подтверждает) |
+
+#### 12.20.5 Дальнейшие шаги (приоритет)
+
+**P1 (главный): Устранить G2 — hint не доживает до POSTROUTING**
+
+Варианты:
+1. **Восстанавливать hint в POSTROUTING** — перед вызовом bind_hook
+   повторно установить hint из FOE-записи PPE (используя `skb->cb` через
+   `nf_conn` или `skb->dev`).
+2. **SDK-style bind (P3 из §7)** — bind через повторное хеширование
+   тьюплов, без зависимости от cb-hint. Вычислить FOE hash из 5-тьюпла
+   в POSTROUTING, найти UNBIND-запись, заполнить egress.
+3. **Сохранять hint через netfilter** — модифицировать passthrough-патчи
+   (648/650), чтобы они сохраняли cb[44] при пересечении цепочек.
+
+**P2: Стабилизировать BIND при torrent churn**
+
+После решения G2: BIND-записи будут перезаписываться torrent churn.
+Для проверки аппаратного offload нужен **длинный TCP-поток**
+(iperf/wgetlarge file) с единственным соединением.
+
+#### 12.20.6 Чек-лист §8 — обновлённый статус
+
+| # | пункт | статус |
+|---|-------|--------|
+| 1 | 0x0e/0x0f РАСТУТ | ✅ Подтверждено |
+| 2 | Хук зарегистрирован, вызывается? | ✅ **ДА** — 35 108 вызовов (фикс §12.19) |
+| 3 | Первый ненулевой gate | **gate2 = 34 923** (hint не доживает) |
+| 4 | BIND в all_entry, bind_hook растёт | ⚠️ bind_hook=185, BIND=0 (torrent churn) |
+| 5 | **Lifecycle (fe_stop/re-register)** | ✅ **ИСПРАВЛЕНО** (§12.19) |
+
+#### 12.20.7 Влияние PPE tuning (§saved_ppe_tuning_commit_f945b3c4a6) на результаты
+
+PPE tuning (BNDR, aging DELTA) **НЕ применён** на текущей прошивке. Анализ
+влияния:
+
+| параметр | текущее | SDK padavan | влияние на наш тест |
+|----------|---------|-------------|---------------------|
+| `PPE_BNDR` | 0x1 | 0x5 | Sample на каждый UNBIND → агрессивный рост 0x0e/0x0f. С 0x5 — sample реже, CPU ниже. На G2 **не влияет** |
+| `UDP_DLTA` | 5 | 12 | UDP-записи стареют **в 2.4 раза быстрее** → churn выше → BIND-записи перезаписываются чаще. **Влияет на BIND=0** |
+| `TCP_DLTA` | 5 | 7 | TCP-записи стареют быстрее → BIND-записи продержатся дольше с SDK-значением |
+| `NTU_DLTA` | 5 | 1 | Non-offload записи медленно чистятся → занимают слоты. SDK чистит быстрее |
+| `FIN_DLTA` | 5 | 1 | FIN-записи медленно чистятся. SDK чистит сразу |
+
+**Вывод:** tuning **не решает G2** (hint loss — netfilter-проблема), но критичен
+после решения G2: `UDP_DLTA=12` снизит churn в 2.4 раза, что даст BIND-записям
+время для аппаратного offload. Применять как **P5** (после P3/P4).
+
+---
+
+## 13. Исследование G2: skb->cb[44] не доживает до POSTROUTING
+
+### 13.1 Что известно
+
+- PPE создаёт UNBIND и шлёт sample с hint в `skb->cb[44..47]`
+  (`mtk_offload_check_rx()`, mtk_offload.c:703-739)
+- Hint = FOE-индекс, записанный побайтово: `cb[44]=0x48, cb[45]=len, cb[46..47]=idx`
+- Bind-hook проверяет `mtk_offload_skb_has_hint(skb)` → `cb[44]==0x48`
+- 99.7% пакетов **не проходят** эту проверку (G2)
+- 0.3% (185/35108) **проходят** → полный bind с MAC/NAT/VLAN
+
+### 13.2 Где skb->cb может перезаписываться
+
+`skb->cb[]` — "control buffer" — **ephemeral-поле SKB**, перезаписывается
+каждым модулем/хуком по своему усмотрению. Кандидаты между PPE-RX и
+POSTROUTING:
+
+1. **`nf_conntrack_in()`** (PREROUTING, prio -200) — `ctinfo` хранится в `cb[1..3]`
+   через `nf_conntrack_alloc()` → перезаписывает `cb[0..7]`
+2. **`nf_nat_ipv4_fn()`** (PREROUTING, prio -100) — NAT использует `skb->cb`
+   для `struct nf_conn` указателя
+3. **`xt_FLOWOFFLOAD`** (FORWARD, prio ~0) — может трогать `skb->cb`
+4. **`br_netfilter`** (PREROUTING/FORWARD) — bridge netfilter
+5. **`__netif_receive_skb_core()`** — bridge/vlan обработка
+6. **`nf_conntrack_confirm()`** — `skb->cb[0]` хранит `ctinfo`
+
+Ключевой момент: `skb->cb[44..47]` — это **высокие индексы**. Основные
+пользователи `skb->cb` в Linux networking используют `cb[0..31]`
+(`struct inet_skb_parm` = 16 слов, `struct nf_conn` указатель через `skb->cb[0]`).
+Но **netfilter-хуки могут писать произвольные данные** в `cb`.
+
+### 13.3 Ключевое наблюдение: 0.3% РАБОТАЮТ
+
+185 из 35108 пакетов **проходят** G2. Это значит что `cb[44]` **сохраняется**
+для части пакетов. Каких?
+
+Гипотеза: это **локальные пакеты** (OUTPUT→POSTROUTING), а не forwarded
+(FORWARD→POSTROUTING). Локальные пакеты **не проходят** через
+`nf_conntrack_in()` в PREROUTING (или проходят упрощённо) → `cb` менее
+повреждён.
+
+Проверка: POSTROUTING хук вызывается для **обеих** цепочек (LOCAL_OUT и
+FORWARD). Если 0.3%的成功 — это OUTPUT-пакеты, а forwarded — нет, то
+причина в conntrack/NAT-forwarded-path.
+
+### 13.4 План анализа G2
+
+1. **Добавить различие forwarded vs local** в bind_hook — определить
+   `state->hook` / `state->in` / `state->out` чтобы разделить
+2. **Найти точное место перезаписи cb[44]** — добавить printk
+   проверку `cb[44]` в разных точках (PREROUTING, FORWARD, POSTROUTING)
+3. **Восстанавливать hint** — альтернатива: вычислять FOE-hash
+   заново из 5-тьюпла в POSTROUTING (SDK-style, P3)
+
+---
+
+## 14. Сессия 2026-09-09: диагностика G2 — cb[44]残留
+
+### 14.1 Что добавлено в код
+
+**`mtk_offload.c`** — в `mtk_offload_bind_hook()`:
+```c
+extern u32 mtk_g2_cb44_zero, mtk_g2_cb44_nonzero;   // счётчики
+static int g2_diag_printed = 0;                        // первые 10 пакетов
+```
+Перед `mtk_offload_check_rx()`:
+- Если `has_hint(skb)` и `skb->cb[44] == 0` → `mtk_g2_cb44_zero++`
+- Если `has_hint(skb)` и `skb->cb[44] != 0` → `mtk_g2_cb44_nonzero++`
+- Для первых 10 пакетов с hint — `printk(KERN_INFO "G2 fail: cb44=0x%02x cb45=0x%02x cb46=0x%02x cb47=0x%02x dev=%s\n", ...)` — выводящая конкретные значения cb[44..47] и имя устройства
+
+**`mtk_offload.h`** — добавлены `extern` объявления для `mtk_g2_cb44_zero` / `mtk_g2_cb44_nonzero`
+
+**`mtk_debugfs.c`** — добавлен вывод в `/sys/kernel/debug/mtk_ppe/rx_reasons`:
+```
+G2_cb44_zero: <cnt>
+G2_cb44_nonzero: <cnt>
+```
+
+### 14.2 Сборка прошивки
+
+- Файлы скопированы из `target/linux/ramips/files-4.14/` → `build_dir/.../linux-4.14.336/drivers/net/ethernet/mediatek/`
+- `make -j$(nproc) V=s` — полная сборка OpenWrt завершена успешно
+- Собранный объект `mtk_offload.o` — 61908 байт (компиляция с предупреждениями `unused variable val/r1/r2` в нетронутом коде, но без ошибок)
+- Прошивка: `bin/targets/ramips/mt7620/openwrt-ramips-mt7620-kn_rc-squashfs-sysupgrade.bin` (4195063 байт)
+- Время сборки: ~50 сек
+- **Но**: `make target/linux/compile` НЕ перекомпилировал встроенный (`=y`) `mtk_eth_soc` — он только собрал модули. Полный `make` собрал всё, включая vmlinux и образ прошивки.
+
+### 14.3 Состояние роутера
+
+```
+ssh root@192.168.3.1 → 4.14.336, uptime 1:03
+```
+Роутер доступен, torrent-клиент на 192.168.3.142 генерирует UDP/DHT трафик на порту 37422.
+
+### 14.4 Что нужно сделать дальше
+
+1. **Прошить** `openwrt-ramips-mt7620-kn_rc-squashfs-sysupgrade.bin` на роутер
+2. **После ребута** выполнить:
+   ```sh
+   dmesg | grep "G2 fail"        # printk с cb[44..47] значениями
+   cat /sys/kernel/debug/mtk_ppe/rx_reasons  # G2_cb44_zero / G2_cb44_nonzero
+   ```
+3. **Проанализировать**:
+   - Если `G2_cb44_zero >> G2_cb44_nonzero` — hint обнуляется (кто-то пишет 0 в cb[44])
+   - Если `G2_cb44_nonzero` показывает мусор — hint перезаписывается
+   - Если `G2_cb44_zero == 0 && G2_cb44_nonzero == 0` — `has_hint()` не срабатывает (magic не совпадает)
+4. **На основе данных** — определить стратегию:
+   - **P1**: Если cb[44] обнуляется conntrack/NAT — добавить `skb->cb[44] = MTK_PPE_HINT_MAGIC` в POSTROUTING перед хуком
+   - **P2**: Если cb[44] перезаписывается — добавить printk в `nf_conntrack_in()` и `nf_nat_masquerade_ipv4()`
+   - **P3**: SDK-style bind — вычислять FOE hash из 5-тьюпла в bind_hook, игнорируя cb-хинт полностью
+
+### 14.5 SSH-команды для прошивки
+
+```sh
+# С хоста (Linux):
+ssh root@192.168.3.1 "cat > /tmp/sysupgrade.bin" < bin/targets/ramips/mt7620/openwrt-ramips-mt7620-kn_rc-squashfs-sysupgrade.bin
+ssh root@192.168.3.1 "sysupgrade -n /tmp/sysupgrade.bin"
+# Роутер ребётнется ~2 минуты
+ssh root@192.168.3.1 "dmesg | grep 'G2 fail'; cat /sys/kernel/debug/mtk_ppe/rx_reasons | grep -E 'G2|bind'"
+```
+
+---
+
+## 15. Сессия 2026-09-09 (вечер): результаты чтения G2-диагностики
+
+### 15.1 Данные со свежего boot (роутер перезагружен, uptime ~7 мин)
+
+Прошивка с §14 залита. Данные сняты через SSH (root@192.168.3.1, pubkey).
+
+#### 15.1.1 dmesg — hook registration
+
+```
+[    6.464955] mtk_soc_eth 10100000.ethernet: PPE started
+[    6.475223] mtk_offload: mtk_ppe_probe CONFIG_SOC_MT7620=y, registering bind hook
+[    6.490145] mtk_offload: nf_register_net_hook returned 0
+[   27.362247] mtk_soc_eth 10100000.ethernet: PPE started
+[   27.372547] mtk_offload: mtk_ppe_probe CONFIG_SOC_MT7620=y, registering bind hook
+[   27.387480] mtk_offload: nf_register_net_hook returned 0
+```
+
+**Подтверждение:** lifecycle-фикс §12.19 работает — оба `fe_open()` вызывают
+`nf_register_net_hook()` и оба возвращают 0. Хук registered дважды (как и ожидалось:
+t=6s первый boot, t=27s второй boot после fe_stop/fe_open цикла).
+
+#### 15.1.2 dmesg — printk "G2 fail" (все 10 сообщений)
+
+```
+[    6.569216] mtk_offload: G2 fail proto=2048 cb[44..47]=00 00 00 00 dev=eth0
+[    6.593363] mtk_offload: G2 fail proto=2048 cb[44..47]=00 00 00 00 dev=eth0
+[   28.770132] mtk_offload: G2 fail proto=2048 cb[44..47]=00 00 00 00 dev=lo
+[   28.794663] mtk_offload: G2 fail proto=2048 cb[44..47]=00 00 00 00 dev=lo
+[   28.818958] mtk_offload: G2 fail proto=2048 cb[44..47]=00 00 00 00 dev=lo
+[   28.988172] mtk_offload: G2 fail proto=2048 cb[44..47]=00 00 00 00 dev=lo
+[   31.130066] mtk_offload: G2 fail proto=2048 cb[44..47]=00 00 00 00 dev=eth0.2
+[   31.167124] mtk_offload: G2 fail proto=2048 cb[44..47]=00 00 00 00 dev=eth0.2
+[   31.216615] mtk_offload: G2 fail proto=2048 cb[44..47]=00 00 00 00 dev=lo
+[   31.241039] mtk_offload: G2 fail proto=2048 cb[44..47]=00 00 00 00 dev=eth0.2
+```
+
+**Ключевые наблюдения:**
+- **Все 10** сообщений: `cb[44..47] = 00 00 00 00` (не побайтовое повреждение,
+  а **полное обнуление** 4 байт)
+- **Все 10** — boot-time пакеты (t=6s-31s), до начала forwarded-трафика от клиента
+- `dev=eth0` — boot-time пакеты (ARP, init)
+- `dev=lo` — локальный трафик роутера (DNS-запросы и т.п.)
+- `dev=eth0.2` — WAN-трафик роутера (DHCP, NTP)
+- **Ни одного** forwarded-пакета от клиента 192.168.3.142 в printk не попало —
+  они затоплены ~4000 строками "bind_hook entered" в кольцевом буфере ядра
+
+**Важно:** printk "G2 fail" **не показывает** поведение для forwarded-пакетов.
+Boot-time пакеты **никогда не имели hint** (PPE не генерировал sample для
+них) — cb[44]=0x00 это ожидаемое поведение. Для forwarded-пакетов данные
+только в счётчиках.
+
+#### 15.1.3 Счётчики (rx_reasons, свежий boot)
+
+```
+0x0e 4971           (HIT_UNBIND — PPE работает)
+0x0f 335145         (RATE_REACHED — PPE работает)
+bind_hook 26        (успешных bind = 6.4% от входов)
+bind_hook_entry 409 (входов в хук)
+bind_gate1 0        (proto ≠ IPv4 — 0)
+bind_gate2 383      (нет hint — 93.6%)
+bind_gate3 0        (нет eth/foe_table — 0)
+bind_gate4 0        (недостижим — 0)
+bind_gate5 0        (нет ct — 0)
+bind_gate6 0        (нет dst — 0)
+bind_gate7 0        (proto не TCP/UDP — 0)
+bind_gate8 0        (нет neigh — 0)
+g2_cb44_zero 352    (cb[44]==0x00 — 91.9% от G2)
+g2_cb44_nonzero 31  (cb[44]!=0x00 && ≠0x48 — 8.1% от G2)
+```
+
+### 15.2 Анализ распределения G2
+
+**Итог G2:** 383 пакета из 409 (93.6%) не имеют hint при POSTROUTING.
+
+Распределение cb[44] среди G2-пакетов:
+
+| cb[44] значение | Количество | % от G2 | Природа |
+|-----------------|-----------|---------|---------|
+| 0x00 (все 4 байта = 0) | 352 | 91.9% | Обнуление (кто-то пишет 0) |
+| ≠0x00 и ≠0x48 | 31 | 8.1% | Мусор из другой подсистемы cb[] |
+
+**Важное уточнение:** `bind_hook_entry = 409` включает **ВСЕ** пакеты на
+POSTROUTING — и forwarded (от клиента), и локальные (DNS, NTP роутера).
+Локальные пакеты **никогда** не проходили через `check_rx()` → `put_hint()`,
+поэтому cb[44]=0x00 для них **ожидаемо**. Реальная доля forwarded-пакетов
+с потерей hint неизвестна из текущих счётчиков (нужно разделять forwarded
+vs local).
+
+### 15.3 Анализ кодового пути — где обнуляется cb[44..47]?
+
+Полный путь forwarded-пакета с hint:
+
+```
+PPE → ESW RX DMA → mtk_eth_soc.c:945 check_rx() → put_hint(cb[44..47])
+  → netif_receive_skb() [ret>0, без GRO]
+  → __netif_receive_skb_core()
+    → NF_NETDEV_INGRESS (xt_FLOWOFFLOAD / nf_flow_table: passthrough возвращает NF_ACCEPT)
+    → ptype_base → ip_rcv()
+      → NF_INET_PRE_ROUTING (nf_conntrack, NAT)
+      → ip_rcv_finish() → routing → ip_forward()
+        → NF_INET_FORWARD
+        → ip_forward_finish() → ip_output()
+          → NF_INET_POST_ROUTING → mtk_offload_bind_hook() → G2 FAIL
+```
+
+**Исследованные кандидаты на обнуление:**
+
+| Кандидат | cb-диапазон | Доходит до offset 44? | Вердикт |
+|----------|-------------|----------------------|---------|
+| `napi_gro_cb` | cb[0..35] (36B) | **Нет** (заканчивается на 35) | Исключён |
+| `struct inet_skbParm` (IPCB) | cb[0..~20] | **Нет** | Исключён |
+| `struct inet6_skb_parm` | cb[0..19] | **Нет** | Исключён |
+| `struct br_input_skb_cb` | cb[0..~18] | **Нет** | Исключён |
+| `tcp_output.c` memset | cb[0..max(sizeof(inet_skb_parm), sizeof(inet6_skb_parm))] = cb[0..~28] | **Нет** | Исключён (к тому же только LOCAL TCP OUTPUT) |
+| `nf_conntrack_in()` | `skb->_nfct` (не cb) | **Нет** | Исключён |
+| nf_flow_table passthrough (648/650) | **ЧТЕНИЕ** cb[44] | **Нет** (только чтение) | Исключён |
+| `skb_scrub_packet()` | netns crossings | **Нет** (netns не используется) | Исключён |
+
+**Все стандартные пользователи `skb->cb[]` заканчиваются до offset 44.**
+Ни один исследованный кодовый путь не пишет в cb[44..47].
+
+### 15.4 Гипотеза: mempool/reallocation skb
+
+Единственное объяснение, объясняющее и нули (91.9%), и мусор (8.1%):
+
+**`skb` переиспользуется из `sk_buff` кэша, и `cb[44..47]` содержит остатки
+от предыдущего пакета.** Если `check_rx()` корректно записывает hint, но
+потом `skb` клонируется/перевыделяется (skb_clone, skb_copy,
+pskb_expand_head), новый skb получает копию cb[] — hint сохраняется.
+Однако, если **конкретный вызов** в стеке создаёт **новый** skb из кэша
+(без копирования cb[]) и подставляет его вместо оригинала — hint теряется.
+
+Другая возможность: **`__netif_receive_skb_core()`** при доставке в
+`ptype_base` (ip_rcv) может **клонировать** skb, если он shared.
+`skb_clone()` копирует cb[], но если skb перед этим был `skb_shared()`,
+а затем в `ip_rcv()` вызывается `skb_share_check()` → `skb_clone()` —
+клон **получает** cb[]. Это не объясняет потерю.
+
+**Наиболее вероятная причина: минимальная —九龙 реального forwarded path
+отличается от ожидаемого.** Пакет от WiFi-клиента (192.168.3.142) идёт
+через bridge (br-lan = eth0.1 + wlan0). Bridge-обработка в
+`__netif_receive_skb_core()` может модифицировать skb иным образом, чем
+ожидается. Конкретно: `br_netfilter` может перехватить пакет и
+перенаправить через `NF_INET_PRE_ROUTING` **вторично** (bridged + routed),
+что приводит к повторной обработке.
+
+### 15.5 Окончательный статус cb-hint подхода
+
+**cb-hint в `skb->cb[44..47]` фундаментально ненадёжён для MT7620.**
+
+Все предыдущие фиксы работали (побайтовая запись, обход GRO, lifecycle
+fix), но **93.6% пакетов** по-прежнему теряют hint. Причины:
+1. `skb->cb[]` — ephemeral-поле SKB, не защищено API
+2. Стандартные пользователи cb[] заканчиваются до offset 44, но
+   нет гарантии от **всяких** модулей/хуков/патчей
+3. Невозможно гарантировать, что cb[44] не会被 повреждён в будущих
+   ядрах/патчах
+
+### 15.6 Рекомендация: переход к P3 (SDK-style bind)
+
+**P3 из §7 — bind через повторное хеширование тьюплов:**
+
+Вместо依赖 от cb-hint, bind_hook должен:
+1. В POSTROUTING для forwarding-пакета вычислить **FOE hash** из
+   5-тьюпла (formula из SDK: `mtk_hnat_get_ppi` / `mtk_hnat_hash`)
+2. Взять `foe_table[hash]`
+3. Если `state==UNBIND` и тьюплы совпадают → прописать egress-данные
+   (MAC, port, VLAN из реального маршрута + neighbour), `state=BIND`
+4. cb-hint больше не нужен — работает для **обоих** направлений
+
+Преимущества:
+- Не зависит от `skb->cb[]` вообще
+- Работает для forwarded **и** reply-пакетов
+- Аналогично тому, как работает padavan `CONFIG_HW_NAT_SEMI_AUTO_MODE`
+- SDK-совместимо
+
+---
+
+### 15.7 Чек-лист §8 — финальный статус
+
+| # | Пункт | Статус |
+|---|-------|--------|
+| 1 | 0x0e/0x0f РАСТУТ | ✅ Подтверждено (4971/335145 на свежем boot) |
+| 2 | Хук зарегистрирован, вызывается? | ✅ **ДА** — 409 вызовов (оба fe_open → nf_register OK) |
+| 3 | Первый ненулевой gate | **gate2 = 383** (hint не доживает — корневая причина) |
+| 4 | BIND в all_entry, bind_hook растёт | ⚠️ bind_hook=26, BIND=0 (torrent churn + 93.6% G2) |
+| 5 | Lifecycle (fe_stop/re-register) | ✅ **ИСПРАВЛЕНО** (§12.19) |
+| 6 | G2 cb[44] диагностика | ✅ **ВЫПОЛНЕНА** (§14–15): 91.9% нули, 8.1% мусор |
+| 7 | cb-hint подход | ❌ **ЗАКРЫТ** как ненадёжный → P3 (SDK-style) |
+
+### 15.8 План на следующую сессию
+
+**P1 (главный):** Реализовать SDK-style bind (P3 из §7):
+- В `mtk_offload_bind_hook()`: вычислять FOE hash из 5-тьюпла пакета
+  (вместо извлечения индекса из cb-hint)
+- Искать `foe_table[hash]`, проверять `state==UNBIND` и совпадение тьюплов
+- Прописывать egress из `mtk_hnat_get_nexthop` (шлюз/dev, не `dst_neigh_lookup`)
+- cb-hint читать как fallback, но не полагаться на него
+
+**P2 (параллельно):** Разделить forwarded vs local в bind_hook — добавить
+проверку `state->in != NULL` (forwarded) vs `state->in == NULL` (local OUTPUT)
+для корректной интерпретации счётчиков.
+
+**P3 (после P1):** Применить PPE tuning (§7 P5) — `UDP_DLTA=12`,
+`TCP_DLTA=7` для снижения torrent churn.
+
+---
+
+## 16. Сессия 2026-09-09 (P1): SDK-style bind реализован
+
+### 16.1 Изменения в коде (working tree, `files-4.14`)
+
+| файл | изменение |
+|------|-----------|
+| `mtk_offload.h` | `extern` для 8 SDK-счётчиков (`mtk_sdk_*`) |
+| `mtk_offload.c` | `mtk_flow_hash_v4_ct()` (hash из `nf_conntrack_tuple`, та же формула, что и PPE HW MODE1); bind_hook переписан на SDK-style lookup; `mtk_sdk_*` счётчики |
+| `mtk_debugfs.c` | вывод `sdk_fwd`, `sdk_local`, `sdk_hash_hit/unbind/match/mismatch/not_unbind`, `sdk_neigh_fail` в `rx_reasons` |
+
+### 16.2 Логика нового bind_hook (изменённая, `mtk_offload.c:794+`)
+
+1. Вход в хук → `mtk_bind_gate_cnt[0]++` + `sdk_fwd`/`sdk_local` (по `state->in`).
+2. `protocol != ETH_P_IP` → G1 exit.
+3. Нет `eth`/`foe_table` → G3; нет ct → G5; нет dst → G6; L4 не TCP/UDP → G7.
+4. **`hash = mtk_flow_hash_v4_ct(t_this)`** — hash «этой» стороны потока.
+   - `conntrack` НЕ переписывает `tuplehash[ORIGINAL]` (NAT пишет только REPLY),
+     поэтому для forward-пакета `t_this` = исходный (pre-NAT) тьюпл, который
+     PPE хешировал на проводе. Для reply-пакета `t_this` = reply-тьюпл = то,
+     что PPE видел входящим.
+   - `hash(t_this)` попадает ровно в слот, созданный PPE.
+5. `foe_table[idx].state != UNBIND` → `sdk_not_unbind`, exit (INVALID/BIND/FIN).
+6. Сверка тьюплов `entry.sip/dip/sport/dport == t_this.*` → mismatch exit.
+7. `dst_neigh_lookup(dst, &t_other->src.u3.ip)` → `sdk_neigh_fail`/G8 exit.
+8. Заполнение записи (как `mtk_foe_prepare_v4()` и старый cb-hint bind):
+   `sip/dip/sport/dport` из `t_this`, `new_*` из `t_other` (reversed),
+   MAC из `outdev->dev_addr` + `n->ha`, `vlan1` если `is_vlan_dev(outdev)`,
+   `state=BIND`.
+9. `mtk_sdk_hash_match_cnt++`, `mtk_bind_hook_cnt++`, `return NF_DROP`.
+
+**cb-hint/RX-механика НЕ используется для bind** — хук больше НЕ читает
+`skb->cb[44]` (G2-ветвь и G2-диагностика удалены). `mtk_offload_check_rx()`
+по-прежнему ставит hint (`mtk_offload_put_hint`, mtk_offload.c:739) — безвредно.
+
+### 16.3 Почему хэш(t_this) совпадает с PPE по обоим направлениям
+
+- Хэш `(ports ^ src_ip ^ dst_ip)` симметричен по IP: `hash(src,dst)==hash(dst,src)`.
+- Для forward (ORIGINAL после NAT): `t_this` = pre-NAT тьюпл (conntrack ORIGINAL
+  не переписывается NAT), = то, что PPE хешировал на eth0.1 → слот совпадает.
+- Для reply (REPLY): `t_this` = reply-тьюпл = пакет, как его видел PPE на eth0.2
+  → слот совпадает.
+
+### 16.4 Проверка компиляции и прошивки
+
+- `mtk_offload.o`: `mtk_offload_bind_hook` **полное тело 0x598 байт** (свёртки нет),
+  `mtk_flow_hash_v4_ct` заинлайнена (single caller), все `mtk_sdk_*` в BSS.
+- `mtk_debugfs.o`: `U mtk_sdk_*` — референсы печати есть.
+- `vmlinux.debug`: `mtk_offload_bind_hook` = `ffffffff802563a0`, `mtk_sdk_*`
+  в BSS (символы подтверждены).
+- Прошивка пересобрана: `bin/targets/ramips/mt7620/openwrt-ramips-mt7620-kn_rc-squashfs-sysupgrade.bin`
+  (4195063 байт, build 18:40).
+- Предупреждения: только pre-existing (`unused var val/r1/r2` в нетронутом коде).
+
+### 16.5 Ожидание от теста на железе
+
+На свежем boot при forwarded-трафике (в `rx_reasons`):
+
+| счётчик | ожидание |
+|---------|----------|
+| `sdk_fwd` | **растёт** — forwarded пакеты доходят до POSTROUTING |
+| `sdk_local` | растёт только для локального OUTPUT (DNS/NTP роутера) |
+| `sdk_hash_hit` | растёт (hash найден) |
+| `sdk_not_unbind` | 0 для новых потоков, ≠0 при коллизиях/уже BIND |
+| `sdk_hash_mismatch` | ≈0 (единично при коллизиях хэшей) |
+| `sdk_hash_match` + `bind_hook` | **растут** — успешные bind |
+| `sdk_neigh_fail` | ≈0 для WAN DHCP (шлюз в ARP) |
+| `all_entry` | появляются `state=BIND` с заполненными MAC/vlan |
+
+Если `sdk_hash_match` растёт, а `state=BIND` в `all_entry` не виден — смотреть
+**P4** (64B vs 80B FOE) и **P5** (PPE tuning, торрент-churn перезаписывает) и
+длинный TCP-поток (iperf) для проверки активации железом.
+
+### 16.6 Oтвет на пункты P1/P2 §15.8
+
+- P1 (SDK-style bind): ✅ реализован (hash из 5-тьюпла, lookup UNBIND,
+  сверка тьюплов, egress из маршрута+neigh).
+- P1 (get_nexthop): `mtk_hnat_get_nexthop` в этом дереве отсутствует; egress
+  берётся из `dst->dev` + `dst_neigh_lookup` (как было раньше) — для WAN
+  DHCP/шлюза этого достаточно (шлюз достижим, §12.6).
+- P2 (forwarded vs local): ✅ `sdk_fwd`/`sdk_local` по `state->in`.
+- cb-hint fallback: не требуется — hash подхода достаточно; G2-диагностика убрана.

@@ -118,6 +118,23 @@ static int mtk_ppe_debugfs_rx_reasons_show(struct seq_file *m, void *private)
 	if (mtk_del_cleanup_cnt)
 		seq_printf(m, "del_cleanup %u\n", mtk_del_cleanup_cnt);
 
+	if (mtk_sdk_bind_fwd_cnt || mtk_sdk_bind_local_cnt) {
+		seq_printf(m, "sdk_fwd %u\n", mtk_sdk_bind_fwd_cnt);
+		seq_printf(m, "sdk_local %u\n", mtk_sdk_bind_local_cnt);
+	}
+	if (mtk_sdk_hash_hit_cnt)
+		seq_printf(m, "sdk_hash_hit %u\n", mtk_sdk_hash_hit_cnt);
+	if (mtk_sdk_hash_unbind_cnt)
+		seq_printf(m, "sdk_hash_unbind %u\n", mtk_sdk_hash_unbind_cnt);
+	if (mtk_sdk_hash_match_cnt)
+		seq_printf(m, "sdk_hash_match %u\n", mtk_sdk_hash_match_cnt);
+	if (mtk_sdk_hash_mismatch_cnt)
+		seq_printf(m, "sdk_hash_mismatch %u\n", mtk_sdk_hash_mismatch_cnt);
+	if (mtk_sdk_hash_not_unbind_cnt)
+		seq_printf(m, "sdk_not_unbind %u\n", mtk_sdk_hash_not_unbind_cnt);
+	if (mtk_sdk_neigh_fail_cnt)
+		seq_printf(m, "sdk_neigh_fail %u\n", mtk_sdk_neigh_fail_cnt);
+
 	return 0;
 }
 
