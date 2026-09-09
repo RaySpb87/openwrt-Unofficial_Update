@@ -284,6 +284,12 @@ extern u32 mtk_rx_reason_cnt[MTK_RX_REASON_CNT];
 /* BIND attempts performed by the netfilter POSTROUTING hook (MT7620 only). */
 extern u32 mtk_bind_hook_cnt;
 
+/* MT7620 bind-hook gate counters. mtk_bind_gate_cnt[0] = hook entries
+ * ("hit POSTROUTING"), [1..8] = the eight NF_ACCEPT exits inside the hook,
+ * in source order (see mtk_offload_bind_hook).  Diagnostic only. */
+#define MTK_BIND_GATE_CNT		9
+extern u32 mtk_bind_gate_cnt[MTK_BIND_GATE_CNT];
+
 /* DEL-path invalidation counter — how many times the cleanup ran. */
 extern u32 mtk_del_cleanup_cnt;
 

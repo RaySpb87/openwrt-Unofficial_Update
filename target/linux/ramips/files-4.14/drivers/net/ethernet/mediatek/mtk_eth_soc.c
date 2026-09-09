@@ -1276,6 +1276,8 @@ static int fe_open(struct net_device *dev)
 	u32 val;
 	int err;
 
+	pr_info("mtk_eth: fe_open %s\n", dev->name);
+
 	err = fe_init_dma(priv);
 	if (err) {
 		fe_free_dma(priv);
@@ -1313,6 +1315,8 @@ static int fe_stop(struct net_device *dev)
 	struct fe_priv *priv = netdev_priv(dev);
 	unsigned long flags;
 	int i;
+
+	pr_info("mtk_eth: fe_stop %s\n", dev->name);
 
 	netif_tx_disable(dev);
 	fe_int_disable(priv->soc->tx_int | priv->soc->rx_int);

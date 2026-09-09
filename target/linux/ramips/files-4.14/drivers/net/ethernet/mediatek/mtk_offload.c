@@ -32,6 +32,7 @@
 
 u32 mtk_rx_reason_cnt[MTK_RX_REASON_CNT];
 u32 mtk_bind_hook_cnt;
+u32 mtk_bind_gate_cnt[MTK_BIND_GATE_CNT];
 u32 mtk_del_cleanup_cnt;
 
 #ifdef CONFIG_SOC_MT7620
@@ -768,28 +769,45 @@ mtk_offload_bind_hook(void *priv, struct sk_buff *skb,
 	struct nf_conn *ct;
 	u32 idx;
 
-	if (skb->protocol != htons(ETH_P_IP))
-		return NF_ACCEPT;
+	pr_info("mtk_offload: bind_hook entered, proto=%u\n", ntohs(skb->protocol));
 
-	if (!mtk_offload_skb_has_hint(skb))
+	/* G0: hook entry — did a forwarded packet reach POSTROUTING at all */
+	mtk_bind_gate_cnt[0]++;
+
+	if (skb->protocol != htons(ETH_P_IP)) {
+		mtk_bind_gate_cnt[1]++;
 		return NF_ACCEPT;
+	}
+
+	if (!mtk_offload_skb_has_hint(skb)) {
+		mtk_bind_gate_cnt[2]++;
+		return NF_ACCEPT;
+	}
 
 	idx = mtk_offload_get_hint(skb);
 	mtk_offload_clear_hint(skb);
 
-	if (!mtk_offload_eth || !mtk_offload_eth->foe_table)
+	if (!mtk_offload_eth || !mtk_offload_eth->foe_table) {
+		mtk_bind_gate_cnt[3]++;
 		return NF_ACCEPT;
+	}
 
-	if (idx >= MTK_PPE_ENTRY_CNT)
+	if (idx >= MTK_PPE_ENTRY_CNT) {
+		mtk_bind_gate_cnt[4]++;
 		return NF_ACCEPT;
+	}
 
 	ct = nf_ct_get(skb, &ctinfo);
-	if (!ct || nf_ct_is_dying(ct))
+	if (!ct || nf_ct_is_dying(ct)) {
+		mtk_bind_gate_cnt[5]++;
 		return NF_ACCEPT;
+	}
 
 	dst = skb_dst(skb);
-	if (!dst || !dst->dev)
+	if (!dst || !dst->dev) {
+		mtk_bind_gate_cnt[6]++;
 		return NF_ACCEPT;
+	}
 
 	outdev = dst->dev;
 
@@ -798,8 +816,10 @@ mtk_offload_bind_hook(void *priv, struct sk_buff *skb,
 	t_other = &ct->tuplehash[!dir].tuple;
 
 	if (t_this->dst.protonum != IPPROTO_TCP &&
-	    t_this->dst.protonum != IPPROTO_UDP)
+	    t_this->dst.protonum != IPPROTO_UDP) {
+		mtk_bind_gate_cnt[7]++;
 		return NF_ACCEPT;
+	}
 
 	/* The egress neighbor (far end of this flow) must already be resolved,
 	 * otherwise the PPE would forward with an empty destination MAC. */
@@ -807,6 +827,7 @@ mtk_offload_bind_hook(void *priv, struct sk_buff *skb,
 	if (!n || !(n->nud_state & NUD_VALID)) {
 		if (n)
 			neigh_release(n);
+		mtk_bind_gate_cnt[8]++;
 		return NF_ACCEPT;
 	}
 
@@ -869,11 +890,8 @@ int mtk_ppe_probe(struct mtk_eth *eth)
 	if (err)
 		return err;
 
-	err = mtk_ppe_debugfs_init(eth);
-	if (err)
-		return err;
-
 #ifdef CONFIG_SOC_MT7620
+	pr_info("mtk_offload: mtk_ppe_probe CONFIG_SOC_MT7620=y, registering bind hook\n");
 	timer_setup(&eth->sma_restore_timer, mtk_sma_restore_timer_fn, 0);
 	/*
 	 * Variant 2 bind: the PPE builds UNBIND entries by itself and samples
@@ -882,8 +900,17 @@ int mtk_ppe_probe(struct mtk_eth *eth)
 	 * in POSTROUTING and dropped (the PPE already forwarded the original).
 	 */
 	mtk_offload_eth = eth;
-	nf_register_net_hook(&init_net, &mtk_offload_bind_ops);
+	{
+		int ret = nf_register_net_hook(&init_net, &mtk_offload_bind_ops);
+		pr_info("mtk_offload: nf_register_net_hook returned %d\n", ret);
+	}
+#else
+	pr_info("mtk_offload: mtk_ppe_probe CONFIG_SOC_MT7620 NOT defined - bind hook NOT registered\n");
 #endif
+
+	err = mtk_ppe_debugfs_init(eth);
+	if (err)
+		pr_info("mtk_offload: mtk_ppe_debugfs_init failed: %d\n", err);
 
 	return 0;
 }
@@ -891,6 +918,7 @@ int mtk_ppe_probe(struct mtk_eth *eth)
 void mtk_ppe_remove(struct mtk_eth *eth)
 {
 #ifdef CONFIG_SOC_MT7620
+	pr_info("mtk_offload: mtk_ppe_remove unregistering bind hook\n");
 	del_timer_sync(&eth->sma_restore_timer);
 	nf_unregister_net_hook(&init_net, &mtk_offload_bind_ops);
 	mtk_offload_eth = NULL;

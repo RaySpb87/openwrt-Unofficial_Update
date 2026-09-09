@@ -109,6 +109,12 @@ static int mtk_ppe_debugfs_rx_reasons_show(struct seq_file *m, void *private)
 	if (mtk_bind_hook_cnt)
 		seq_printf(m, "bind_hook %u\n", mtk_bind_hook_cnt);
 
+	if (mtk_bind_gate_cnt[0]) {
+		seq_printf(m, "bind_hook_entry %u\n", mtk_bind_gate_cnt[0]);
+		for (i = 1; i < MTK_BIND_GATE_CNT; i++)
+			seq_printf(m, "bind_gate%d %u\n", i, mtk_bind_gate_cnt[i]);
+	}
+
 	if (mtk_del_cleanup_cnt)
 		seq_printf(m, "del_cleanup %u\n", mtk_del_cleanup_cnt);
 
@@ -136,8 +142,11 @@ int mtk_ppe_debugfs_init(struct mtk_eth *eth)
 	_eth = eth;
 
 	root = debugfs_create_dir("mtk_ppe", NULL);
-	if (!root)
-		return -ENOMEM;
+	if (IS_ERR(root)) {
+		if (PTR_ERR(root) == -EEXIST)
+			return 0;
+		return PTR_ERR(root);
+	}
 
 	debugfs_create_file("all_entry", S_IRUGO, root, eth, &mtk_ppe_debugfs_foe_fops);
 	debugfs_create_file("rx_reasons", S_IRUGO, root, eth, &mtk_ppe_debugfs_rx_reasons_fops);
