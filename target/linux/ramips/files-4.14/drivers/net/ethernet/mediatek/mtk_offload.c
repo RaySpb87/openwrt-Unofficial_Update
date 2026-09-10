@@ -932,7 +932,10 @@ mtk_offload_bind_hook(void *priv, struct sk_buff *skb,
 		entry->ipv4_hnapt.bfib1.vlan_layer = 1;
 	}
 
-	entry->ipv4_hnapt.bfib1.state = BIND;
+	/* F1 (dry bind): write the entry but keep state=UNBIND so the PPE keeps
+	 * its native UNBIND/sample behaviour and the flow does NOT get fully
+	 * taken over by HW (restores connectivity broken by BIND entries). */
+	entry->ipv4_hnapt.bfib1.state = UNBIND;
 
 	mtk_sdk_hash_match_cnt++;
 	mtk_bind_hook_cnt++;
