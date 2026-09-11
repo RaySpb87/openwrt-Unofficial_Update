@@ -655,18 +655,39 @@ static void mtk_offload_keepalive(struct fe_priv *eth, unsigned int hash)
 }
 
 #ifdef CONFIG_SOC_MT7620
+/*
+ * skb->cb must be accessed byte-wise, never as *(u32 *)&skb->cb[off]: a
+ * type-punned u32 read/write over the char cb[] area is UB and GCC 7.5
+ * for MIPS at -O2 folds such accesses to constant false/true, silently
+ * gutting any hint check (see openwrt-19.07.10UE, commit 7eb7ab836b).
+ */
 static inline void
 mtk_offload_cb_write(struct sk_buff *skb, u32 rxd4)
 {
-	*(u32 *)(skb->cb + MTK_FOE_CB_OFFSET) =
-		(rxd4 & (MTK_RXD4_FOE_ENTRY | MTK_RXD4_CPU_REASON |
-			 MTK_RXD4_ALG)) | (MTK_FOE_CB_MAGIC << 19);
+	u32 v;
+	unsigned char *cb = skb->cb + MTK_FOE_CB_OFFSET;
+
+	v = (rxd4 & (MTK_RXD4_FOE_ENTRY | MTK_RXD4_CPU_REASON |
+		     MTK_RXD4_ALG)) | (MTK_FOE_CB_MAGIC << 19);
+	cb[0] = v >> 0;
+	cb[1] = v >> 8;
+	cb[2] = v >> 16;
+	cb[3] = v >> 24;
+}
+
+static inline u32
+mtk_offload_cb_read(struct sk_buff *skb)
+{
+	const unsigned char *cb = skb->cb + MTK_FOE_CB_OFFSET;
+
+	return ((u32)cb[3] << 24) | ((u32)cb[2] << 16) |
+	       ((u32)cb[1] << 8) | cb[0];
 }
 
 static inline unsigned int
 mtk_offload_cb_valid(struct sk_buff *skb)
 {
-	u32 tag = *(u32 *)(skb->cb + MTK_FOE_CB_OFFSET);
+	u32 tag = mtk_offload_cb_read(skb);
 
 	return FIELD_GET(GENMASK(21, 19), tag) == MTK_FOE_CB_MAGIC &&
 	       FIELD_GET(MTK_RXD4_CPU_REASON, tag) ==
@@ -805,7 +826,7 @@ mtk_offload_tx(struct fe_priv *eth, struct sk_buff *skb)
 	if (unlikely(!mtk_offload_cb_valid(skb)))
 		return 0;
 
-	tag = *(u32 *)(skb->cb + MTK_FOE_CB_OFFSET);
+	tag = mtk_offload_cb_read(skb);
 	sdk_bind_hint_tx_cnt++;
 
 	/* only plain HNAPT (alg==0) rate-reach samples are bound */

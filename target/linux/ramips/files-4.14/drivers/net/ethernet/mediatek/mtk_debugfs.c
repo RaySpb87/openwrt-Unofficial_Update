@@ -178,8 +178,13 @@ int mtk_ppe_debugfs_init(struct mtk_eth *eth)
 	_eth = eth;
 
 	root = debugfs_create_dir("mtk_ppe", NULL);
-	if (!root)
-		return -ENOMEM;
+	if (IS_ERR(root)) {
+		/* fe_open()/fe_stop() cycles keep the directory; the files
+		 * below were created on the first run, so -EEXIST is fine */
+		if (PTR_ERR(root) == -EEXIST)
+			return 0;
+		return PTR_ERR(root);
+	}
 
 	debugfs_create_file("all_entry", S_IRUGO, root, eth, &mtk_ppe_debugfs_foe_fops);
 	debugfs_create_file("rx_reasons", S_IRUGO, root, eth, &mtk_ppe_debugfs_rx_reasons_fops);
