@@ -14,6 +14,15 @@
 
 #ifdef CONFIG_SOC_MT7620
 #include "gsw_mt7620.h"
+#include <linux/if_vlan.h>
+#include <linux/ip.h>
+#include <net/ip.h>
+#include <linux/if_ether.h>
+#include <linux/netfilter.h>
+#include <linux/netfilter_ipv4.h>
+#include <linux/tcp.h>
+#include <linux/udp.h>
+#include <net/net_namespace.h>
 #endif
 
 #define INVALID	0
@@ -23,6 +32,21 @@
 
 #define IPV4_HNAPT			0
 #define IPV4_HNAT			1
+
+u32 mtk_rx_reason_cnt[MTK_RX_REASON_CNT];
+u32 mtk_bind_hook_cnt;
+
+u32 sdk_bind_hint_rx_cnt;
+u32 sdk_bind_hint_pr_cnt;
+u32 sdk_bind_hint_fwd_cnt;
+u32 sdk_bind_hint_post_cnt;
+u32 sdk_bind_hint_tx_cnt;
+u32 sdk_bind_ok_cnt;
+u32 sdk_bind_skip_state_cnt;
+u32 sdk_bind_fail_cnt;
+
+/* VLAN ID of the LAN ports (used to pick the PPE account group) */
+u16 mtk_lan_vid = 1;
 
 #ifdef CONFIG_SOC_MT7620
 /* MT7620 Frame Engine PPE block (RALINK_PPE_BASE = FE_BASE + 0xC00) */
@@ -630,11 +654,263 @@ static void mtk_offload_keepalive(struct fe_priv *eth, unsigned int hash)
 	rcu_read_unlock();
 }
 
+#ifdef CONFIG_SOC_MT7620
+static inline void
+mtk_offload_cb_write(struct sk_buff *skb, u32 rxd4)
+{
+	*(u32 *)(skb->cb + MTK_FOE_CB_OFFSET) =
+		(rxd4 & (MTK_RXD4_FOE_ENTRY | MTK_RXD4_CPU_REASON |
+			 MTK_RXD4_ALG)) | (MTK_FOE_CB_MAGIC << 19);
+}
+
+static inline unsigned int
+mtk_offload_cb_valid(struct sk_buff *skb)
+{
+	u32 tag = *(u32 *)(skb->cb + MTK_FOE_CB_OFFSET);
+
+	return FIELD_GET(GENMASK(21, 19), tag) == MTK_FOE_CB_MAGIC &&
+	       FIELD_GET(MTK_RXD4_CPU_REASON, tag) ==
+		       MTK_CPU_REASON_HIT_UNBIND_RATE_REACHED;
+}
+
+/*
+ * Turn the UNBIND entry that was created by the PPE into a BIND entry,
+ * using the fields of the current (post-NAT) packet.  Models Ralink's
+ * FoeBindToPpe() for MT7620.
+ *
+ * Returns 0 on success, 1 if already bound, negative on error.
+ */
+static int
+mtk_offload_bind_v4(struct fe_priv *eth, struct sk_buff *skb, u32 tag)
+{
+	struct mtk_foe_entry *entry;
+	struct ethhdr *ethhdr = eth_hdr(skb);
+	const struct vlan_hdr *vh;
+	struct iphdr *iph;
+	struct tcphdr *th;
+	struct udphdr *uh;
+	u16 entry_num, vlan1_id = 0;
+	u32 vlan_layer = 0;
+	int port_ag = 1;
+
+	entry_num = FIELD_GET(MTK_RXD4_FOE_ENTRY, tag);
+	if (entry_num >= MTK_PPE_ENTRY_CNT)
+		return -EINVAL;
+
+	entry = &eth->foe_table[entry_num];
+
+	if (entry->bfib1.state == BIND)
+		return 1;
+	if (entry->bfib1.state != UNBIND)
+		return -EINVAL;
+	if (entry->bfib1.pkt_type != IPV4_HNAPT)
+		return -EINVAL;
+	if (is_multicast_ether_addr(ethhdr->h_dest))
+		return -EINVAL;
+
+	if (skb_vlan_tag_present(skb)) {
+		vlan_layer = 1;
+		vlan1_id = skb_vlan_tag_get(skb) & VLAN_VID_MASK;
+		iph = ip_hdr(skb);
+	} else if (ethhdr->h_proto == htons(ETH_P_8021Q)) {
+		vlan_layer = 1;
+		vh = (struct vlan_hdr *)(skb->data + ETH_HLEN);
+		if (vh->h_vlan_encapsulated_proto != htons(ETH_P_IP))
+			return -EINVAL;
+		vlan1_id = ntohs(vh->h_vlan_TCI) & VLAN_VID_MASK;
+		iph = (struct iphdr *)(skb->data + ETH_HLEN + VLAN_HLEN);
+	} else {
+		if (ethhdr->h_proto != htons(ETH_P_IP))
+			return -EINVAL;
+		iph = ip_hdr(skb);
+	}
+
+	if (iph->ihl < 5)
+		return -EINVAL;
+
+	entry->ipv4_hnapt.new_sip = ntohl(iph->saddr);
+	entry->ipv4_hnapt.new_dip = ntohl(iph->daddr);
+	entry->ipv4_hnapt.iblk2.dscp = iph->tos;
+
+	switch (iph->protocol) {
+	case IPPROTO_TCP:
+		th = (struct tcphdr *)((u8 *)iph + iph->ihl * 4);
+		if (iph->frag_off & htons(IP_MF | IP_OFFSET))
+			return -EINVAL;
+		entry->ipv4_hnapt.new_sport = ntohs(th->source);
+		entry->ipv4_hnapt.new_dport = ntohs(th->dest);
+		entry->ipv4_hnapt.bfib1.udp = 0;
+		break;
+	case IPPROTO_UDP:
+		uh = (struct udphdr *)((u8 *)iph + iph->ihl * 4);
+		if (iph->frag_off & htons(IP_MF | IP_OFFSET))
+			return -EINVAL;
+		/* PPE bug: UDP flows with a zero checksum are not offloaded */
+		if (!uh->check)
+			return -EINVAL;
+		entry->ipv4_hnapt.new_sport = ntohs(uh->source);
+		entry->ipv4_hnapt.new_dport = ntohs(uh->dest);
+		entry->ipv4_hnapt.bfib1.udp = 1;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	/* L2 rewrite: MACs, egress VLAN and etype */
+	entry->ipv4_hnapt.dmac_hi = swab32(*(u32 *)ethhdr->h_dest);
+	entry->ipv4_hnapt.dmac_lo = swab16(*(u16 *)&ethhdr->h_dest[4]);
+	entry->ipv4_hnapt.smac_hi = swab32(*(u32 *)ethhdr->h_source);
+	entry->ipv4_hnapt.smac_lo = swab16(*(u16 *)&ethhdr->h_source[4]);
+	entry->ipv4_hnapt.vlan1 = vlan1_id;
+	entry->ipv4_hnapt.vlan2 = 0;
+	entry->ipv4_hnapt.etype = htons(ETH_P_IP);
+
+	/* bind info block 1 */
+	entry->bfib1.vlan_layer = vlan_layer;
+	entry->bfib1.psn = 0;
+	entry->bfib1.rmt = 0;
+	entry->bfib1.dvp = 1;
+	entry->bfib1.drm = 1;
+	entry->bfib1.ka = 1;
+	entry->bfib1.time_stamp = mtk_r32(eth, 0x0010) & 0x7fff;
+	entry->bfib1.ttl = 1;
+	entry->bfib1.cah = 1;
+	entry->bfib1.pkt_type = IPV4_HNAPT;
+
+	/* info block 2: no force port, let the switch pick egress by DA */
+	entry->ipv4_hnapt.iblk2.fpidx = 8;
+	entry->ipv4_hnapt.iblk2.fp = 0;
+	entry->ipv4_hnapt.iblk2.up = 0;
+	entry->ipv4_hnapt.iblk2.fdq = 0;
+	entry->ipv4_hnapt.iblk2.port_mg = 0x3f;
+	if ((vlan1_id & VLAN_VID_MASK) != mtk_lan_vid)
+		port_ag = 2;
+	entry->ipv4_hnapt.iblk2.port_ag = port_ag;
+	entry->ipv4_hnapt.act_dp = 0;
+
+	wmb();
+	entry->bfib1.state = BIND;
+	wmb();
+
+	mtk_bind_hook_cnt++;
+
+	return 0;
+}
+
+int
+mtk_offload_tx(struct fe_priv *eth, struct sk_buff *skb)
+{
+	u32 tag;
+
+	if (unlikely(!mtk_offload_cb_valid(skb)))
+		return 0;
+
+	tag = *(u32 *)(skb->cb + MTK_FOE_CB_OFFSET);
+	sdk_bind_hint_tx_cnt++;
+
+	/* only plain HNAPT (alg==0) rate-reach samples are bound */
+	if (FIELD_GET(MTK_RXD4_ALG, tag) != 0)
+		return 0;
+
+	switch (mtk_offload_bind_v4(eth, skb, tag)) {
+	case 0:
+		sdk_bind_ok_cnt++;
+		break;
+	case 1:
+		sdk_bind_skip_state_cnt++;
+		break;
+	default:
+		sdk_bind_fail_cnt++;
+		break;
+	}
+
+	return 0;
+}
+
+static unsigned int
+mtk_offload_hook_pr(void *priv, struct sk_buff *skb,
+		    const struct nf_hook_state *state)
+{
+	if (mtk_offload_cb_valid(skb))
+		sdk_bind_hint_pr_cnt++;
+	return NF_ACCEPT;
+}
+
+static unsigned int
+mtk_offload_hook_fwd(void *priv, struct sk_buff *skb,
+		     const struct nf_hook_state *state)
+{
+	if (mtk_offload_cb_valid(skb))
+		sdk_bind_hint_fwd_cnt++;
+	return NF_ACCEPT;
+}
+
+static unsigned int
+mtk_offload_hook_post(void *priv, struct sk_buff *skb,
+		      const struct nf_hook_state *state)
+{
+	if (mtk_offload_cb_valid(skb))
+		sdk_bind_hint_post_cnt++;
+	return NF_ACCEPT;
+}
+
+static struct nf_hook_ops mtk_offload_hook_ops[] = {
+	{
+		.hook		= mtk_offload_hook_pr,
+		.pf		= NFPROTO_IPV4,
+		.hooknum	= NF_INET_PRE_ROUTING,
+		.priority	= NF_IP_PRI_FIRST,
+	},
+	{
+		.hook		= mtk_offload_hook_fwd,
+		.pf		= NFPROTO_IPV4,
+		.hooknum	= NF_INET_FORWARD,
+		.priority	= NF_IP_PRI_FIRST,
+	},
+	{
+		.hook		= mtk_offload_hook_post,
+		.pf		= NFPROTO_IPV4,
+		.hooknum	= NF_INET_POST_ROUTING,
+		.priority	= NF_IP_PRI_FIRST,
+	},
+};
+
+static int mtk_offload_hooks_register(void)
+{
+	int i, ret;
+
+	for (i = 0; i < ARRAY_SIZE(mtk_offload_hook_ops); i++) {
+		ret = nf_register_net_hook(&init_net, &mtk_offload_hook_ops[i]);
+		if (ret)
+			goto err;
+	}
+
+	return 0;
+
+err:
+	while (i--)
+		nf_unregister_net_hook(&init_net, &mtk_offload_hook_ops[i]);
+	return ret;
+}
+
+static void mtk_offload_hooks_unregister(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(mtk_offload_hook_ops); i++)
+		nf_unregister_net_hook(&init_net, &mtk_offload_hook_ops[i]);
+}
+#endif
+
 int mtk_offload_check_rx(struct fe_priv *eth, struct sk_buff *skb, u32 rxd4)
 {
-	unsigned int hash;
+	unsigned int reason, hash;
 
-	switch (FIELD_GET(MTK_RXD4_CPU_REASON, rxd4)) {
+	reason = FIELD_GET(MTK_RXD4_CPU_REASON, rxd4);
+	if (reason < MTK_RX_REASON_CNT)
+		mtk_rx_reason_cnt[reason]++;
+
+	switch (reason) {
 	case MTK_CPU_REASON_KEEPALIVE_UC_OLD_HDR:
 	case MTK_CPU_REASON_KEEPALIVE_MC_NEW_HDR:
 	case MTK_CPU_REASON_KEEPALIVE_DUP_OLD_HDR:
@@ -643,6 +919,14 @@ int mtk_offload_check_rx(struct fe_priv *eth, struct sk_buff *skb, u32 rxd4)
 		return -1;
 	case MTK_CPU_REASON_PACKET_SAMPLING:
 		return -1;
+#ifdef CONFIG_SOC_MT7620
+	case MTK_CPU_REASON_HIT_UNBIND_RATE_REACHED:
+		/* keep the FOE tag for the TX-path bind; deliver the frame
+		 * directly (bypassing GRO so the tag stays in skb->cb) */
+		mtk_offload_cb_write(skb, rxd4);
+		sdk_bind_hint_rx_cnt++;
+		return 1;
+#endif
 	default:
 		return 0;
 	}
@@ -656,6 +940,14 @@ int mtk_ppe_probe(struct mtk_eth *eth)
 	if (err)
 		return err;
 
+#ifdef CONFIG_SOC_MT7620
+	err = mtk_offload_hooks_register();
+	if (err) {
+		mtk_ppe_stop(eth);
+		return err;
+	}
+#endif
+
 	err = mtk_ppe_debugfs_init(eth);
 	if (err)
 		return err;
@@ -665,5 +957,8 @@ int mtk_ppe_probe(struct mtk_eth *eth)
 
 void mtk_ppe_remove(struct mtk_eth *eth)
 {
+#ifdef CONFIG_SOC_MT7620
+	mtk_offload_hooks_unregister();
+#endif
 	mtk_ppe_stop(eth);
 }

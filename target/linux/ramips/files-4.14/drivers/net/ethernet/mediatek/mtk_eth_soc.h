@@ -527,6 +527,7 @@ int mtk_flow_offload(struct fe_priv *eth,
 		     struct flow_offload_hw_path *src,
 		     struct flow_offload_hw_path *dest);
 int mtk_offload_check_rx(struct fe_priv *eth, struct sk_buff *skb, u32 rxd4);
+int mtk_offload_tx(struct fe_priv *eth, struct sk_buff *skb);
 
 
 #endif /* FE_ETH_H */

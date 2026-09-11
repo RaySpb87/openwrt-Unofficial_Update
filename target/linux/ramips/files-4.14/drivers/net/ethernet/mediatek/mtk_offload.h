@@ -123,6 +123,36 @@ mtk_w32(struct mtk_eth *eth, u32 val, u32 reg)
 #define   MTK_PPE_CAH_CTRL_X_MODE		BIT(9)
 #define   MTK_PPE_CAH_CTRL_EN			BIT(0)
 
+/*
+ * SDK bind model (MT7620): the PPE builds UNBIND entries by itself and
+ * forwards a frame to the CPU tagged with RXD4 reason 0x0f once the flow
+ * rate limit is reached.  We carry a compact copy of the interesting rxd4
+ * fields from the RX path to the TX path (fe_start_xmit) inside skb->cb,
+ * where the entry is turned into a BIND entry from the current (post-NAT)
+ * packet, mirroring Ralink's PpeTxHandler().
+ *
+ * The tag keeps the MTK_RXD4_* bit layout (FOE_ENTRY, CPU_REASON, ALG) and
+ * uses the 3 otherwise reserved bits [21..19] as a validity magic.
+ */
+#define MTK_FOE_CB_OFFSET			44
+#define MTK_FOE_CB_MAGIC			0x5
+
+#define MTK_RX_REASON_CNT			32
+
+extern u32 mtk_rx_reason_cnt[MTK_RX_REASON_CNT];
+extern u32 mtk_bind_hook_cnt;
+
+extern u16 mtk_lan_vid;
+
+extern u32 sdk_bind_hint_rx_cnt;
+extern u32 sdk_bind_hint_pr_cnt;
+extern u32 sdk_bind_hint_fwd_cnt;
+extern u32 sdk_bind_hint_post_cnt;
+extern u32 sdk_bind_hint_tx_cnt;
+extern u32 sdk_bind_ok_cnt;
+extern u32 sdk_bind_skip_state_cnt;
+extern u32 sdk_bind_fail_cnt;
+
 struct mtk_foe_unbind_info_blk {
 	u32 time_stamp:8;
 	u32 pcnt:16;		/* packet count */

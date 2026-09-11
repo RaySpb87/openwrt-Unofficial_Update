@@ -839,6 +839,11 @@ static int fe_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	int tx_num;
 	int len = skb->len;
 
+#ifdef CONFIG_NET_MEDIATEK_OFFLOAD
+	/* SDK bind: turn 0x0f rate-reach samples into BIND FOE entries */
+	mtk_offload_tx(priv, skb);
+#endif
+
 	if (fe_skb_padto(skb, priv)) {
 		netif_warn(priv, tx_err, dev, "tx padding failed!\n");
 		return NETDEV_TX_OK;
@@ -939,15 +944,25 @@ static int fe_poll_rx(struct napi_struct *napi, int budget,
 					       RX_DMA_VID(trxd.rxd3));
 
 #ifdef CONFIG_NET_MEDIATEK_OFFLOAD
-		if (mtk_offload_check_rx(priv, skb, trxd.rxd4) == 0) {
+		switch (mtk_offload_check_rx(priv, skb, trxd.rxd4)) {
+		case 1:
+			stats->rx_packets++;
+			stats->rx_bytes += pktlen;
+			/* deliver directly without GRO, keeping the FOE
+			 * bind hint in skb->cb for the TX path */
+			netif_receive_skb(skb);
+			break;
+		case 0:
 #endif
 			stats->rx_packets++;
 			stats->rx_bytes += pktlen;
 
 			napi_gro_receive(napi, skb);
 #ifdef CONFIG_NET_MEDIATEK_OFFLOAD
-		} else {
+			break;
+		default:
 			dev_kfree_skb(skb);
+			break;
 		}
 #endif
 		ring->rx_data[idx] = new_data;
