@@ -154,6 +154,10 @@ extern u32 sdk_bind_skip_state_cnt;
 extern u32 sdk_bind_skip_alg_cnt;
 extern u32 sdk_bind_fail_cnt;
 extern u32 last_tag_alg_val;
+extern u32 sdk_bind_enabled;
+extern u32 sdk_bind_alg_enforce;
+
+int mtk_ppe_reset(void);
 
 struct mtk_foe_unbind_info_blk {
 	u32 time_stamp:8;

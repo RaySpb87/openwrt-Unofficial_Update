@@ -13,6 +13,9 @@
 
 #include "mtk_offload.h"
 #include <linux/if_vlan.h>
+#ifdef CONFIG_SOC_MT7620
+#include "gsw_mt7620.h"
+#endif
 
 static const char *mtk_foe_entry_state_str[] = {
 	"INVALID",
@@ -109,6 +112,8 @@ static int mtk_ppe_debugfs_rx_reasons_show(struct seq_file *m, void *private)
 
 	seq_printf(m, "bind_hook %u\n", mtk_bind_hook_cnt);
 	seq_printf(m, "lan_vid %u\n", mtk_lan_vid);
+	seq_printf(m, "sdk_bind_enabled %u\n", sdk_bind_enabled);
+	seq_printf(m, "sdk_bind_alg_enforce %u\n", sdk_bind_alg_enforce);
 
 	seq_printf(m, "sdk_bind_hint_rx %u\n", sdk_bind_hint_rx_cnt);
 	seq_printf(m, "sdk_bind_hint_pre %u\n", sdk_bind_hint_pr_cnt);
@@ -173,6 +178,163 @@ static const struct file_operations mtk_ppe_debugfs_lan_vid_fops = {
 	.release = single_release,
 };
 
+static ssize_t mtk_ppe_debugfs_sdk_u32_write(struct file *file,
+					     const char __user *user_buf,
+					     size_t count, loff_t *ppos)
+{
+	char buf[16];
+	unsigned long val;
+	u32 *p = file->private_data;
+
+	if (count >= sizeof(buf))
+		return -EINVAL;
+	if (copy_from_user(buf, user_buf, count))
+		return -EFAULT;
+	buf[count] = '\0';
+	if (kstrtoul(buf, 0, &val))
+		return -EINVAL;
+
+	*p = val;
+
+	return count;
+}
+
+static int mtk_ppe_debugfs_sdk_u32_show(struct seq_file *m, void *private)
+{
+	seq_printf(m, "%u\n", *(u32 *)m->private);
+
+	return 0;
+}
+
+static int mtk_ppe_debugfs_sdk_u32_open(struct inode *inode,
+					struct file *file)
+{
+	return single_open(file, mtk_ppe_debugfs_sdk_u32_show,
+			   file->private_data);
+}
+
+static const struct file_operations mtk_ppe_debugfs_sdk_u32_fops = {
+	.open = mtk_ppe_debugfs_sdk_u32_open,
+	.read = seq_read,
+	.write = mtk_ppe_debugfs_sdk_u32_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static ssize_t mtk_ppe_debugfs_ppe_reset_write(struct file *file,
+					       const char __user *user_buf,
+					       size_t count, loff_t *ppos)
+{
+	char buf[8];
+	unsigned long val;
+	int ret;
+
+	if (count >= sizeof(buf))
+		return -EINVAL;
+	if (copy_from_user(buf, user_buf, count))
+		return -EFAULT;
+	buf[count] = '\0';
+	if (kstrtoul(buf, 0, &val))
+		return -EINVAL;
+
+	if (val) {
+		ret = mtk_ppe_reset();
+		if (ret)
+			return ret;
+	}
+
+	return count;
+}
+
+static const struct file_operations mtk_ppe_debugfs_ppe_reset_fops = {
+	.write = mtk_ppe_debugfs_ppe_reset_write,
+};
+
+#ifdef CONFIG_SOC_MT7620
+#define ESW_VLAN_VTCR		0x90
+#define ESW_VLAN_VAWD1		0x94
+#define ESW_VLAN_VAWD2		0x98
+#define ESW_VLAN_VTIM(x)	(0x100 + 4 * ((x) / 2))
+#define ESW_PORT_PCR(x)		(0x2004 | ((x) << 8))
+#define ESW_PORT_PVC(x)		(0x2010 | ((x) << 8))
+#define ESW_PORT_PPBV1(x)	(0x2014 | ((x) << 8))
+#define ESW_TPF(x)		(0x2030 + ((x) * 0x100))
+#define ESW_PSC_P7		0x270C
+#define ESW_PMCR_P7		0x3700
+
+static void mtk_esw_dump_vlan(struct seq_file *m, struct mt7620_gsw *gsw,
+			      int idx)
+{
+	u32 a1, a2, vtim;
+	int i;
+
+	/* read the VLAN CAM entry by table index (cmd 0) */
+	mtk_switch_w32(gsw, ESW_VLAN_VTCR, BIT(31) | (idx & 0xfff));
+	for (i = 0; i < 20 && (mtk_switch_r32(gsw, ESW_VLAN_VTCR) & BIT(31));
+	     i++)
+		udelay(1000);
+
+	a1 = mtk_switch_r32(gsw, ESW_VLAN_VAWD1);
+	a2 = mtk_switch_r32(gsw, ESW_VLAN_VAWD2);
+	vtim = mtk_switch_r32(gsw, ESW_VLAN_VTIM(idx));
+	if (idx & 1)
+		vtim >>= 12;
+	vtim &= 0xfff;
+
+	seq_printf(m, "vlan[%d] vid=%u valid=%u vtag_en=%u member=0x%02x\n",
+		   idx, vtim, a1 & 1, (a1 >> 28) & 1, (a1 >> 16) & 0xff);
+	seq_printf(m, "  ports:");
+	for (i = 0; i < 8; i++) {
+		int etag = (a2 >> (i * 2)) & 0x3;
+
+		if ((a1 >> 16) & BIT(i))
+			seq_printf(m, " %d%s", i, etag == 2 ? "t" : "");
+	}
+	seq_printf(m, "\n");
+}
+
+static int mtk_ppe_debugfs_esw_regs_show(struct seq_file *m, void *private)
+{
+	struct mtk_eth *eth = _eth;
+	struct mt7620_gsw *gsw =
+			(struct mt7620_gsw *)eth->soc->swpriv;
+	int i;
+
+	seq_printf(m, "pfc 0x%08x\n", mtk_switch_r32(gsw, 0x0004));
+	for (i = 0; i < 8; i++) {
+		seq_printf(m, "pcr[%d] 0x%08x pvc[%d] 0x%08x ppbv1[%d] 0x%08x\n",
+			   i, mtk_switch_r32(gsw, ESW_PORT_PCR(i)),
+			   i, mtk_switch_r32(gsw, ESW_PORT_PVC(i)),
+			   i, mtk_switch_r32(gsw, ESW_PORT_PPBV1(i)));
+	}
+	for (i = 0; i < 6; i++)
+		seq_printf(m, "tpf[%d] 0x%08x\n", i,
+			   mtk_switch_r32(gsw, ESW_TPF(i)));
+	seq_printf(m, "psc_p7 0x%08x\n", mtk_switch_r32(gsw, ESW_PSC_P7));
+	seq_printf(m, "pmcr_p7 0x%08x\n", mtk_switch_r32(gsw, ESW_PMCR_P7));
+	seq_printf(m, "vtcr 0x%08x\n", mtk_switch_r32(gsw, ESW_VLAN_VTCR));
+
+	mtk_esw_dump_vlan(m, gsw, 1);
+	mtk_esw_dump_vlan(m, gsw, 2);
+
+	return 0;
+}
+
+static int mtk_ppe_debugfs_esw_regs_open(struct inode *inode,
+					 struct file *file)
+{
+	return single_open(file, mtk_ppe_debugfs_esw_regs_show,
+			   file->private_data);
+}
+
+static const struct file_operations mtk_ppe_debugfs_esw_regs_fops = {
+	.open = mtk_ppe_debugfs_esw_regs_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+#endif
+
 int mtk_ppe_debugfs_init(struct mtk_eth *eth)
 {
 	struct dentry *root;
@@ -192,6 +354,16 @@ int mtk_ppe_debugfs_init(struct mtk_eth *eth)
 	debugfs_create_file("rx_reasons", S_IRUGO, root, eth, &mtk_ppe_debugfs_rx_reasons_fops);
 	debugfs_create_file("lan_vid", S_IRUGO | S_IWUSR, root, eth,
 			    &mtk_ppe_debugfs_lan_vid_fops);
+	debugfs_create_file("bind_en", S_IRUGO | S_IWUSR, root,
+			    &sdk_bind_enabled, &mtk_ppe_debugfs_sdk_u32_fops);
+	debugfs_create_file("alg_enforce", S_IRUGO | S_IWUSR, root,
+			    &sdk_bind_alg_enforce, &mtk_ppe_debugfs_sdk_u32_fops);
+	debugfs_create_file("ppe_reset", S_IWUSR, root, NULL,
+			    &mtk_ppe_debugfs_ppe_reset_fops);
+#ifdef CONFIG_SOC_MT7620
+	debugfs_create_file("esw_regs", S_IRUGO, root, eth,
+			    &mtk_ppe_debugfs_esw_regs_fops);
+#endif
 
 	return 0;
 }

@@ -46,6 +46,10 @@ u32 sdk_bind_skip_state_cnt;
 u32 sdk_bind_skip_alg_cnt;
 u32 sdk_bind_fail_cnt;
 u32 last_tag_alg_val;
+u32 sdk_bind_enabled;
+u32 sdk_bind_alg_enforce;
+
+static struct mtk_eth *sdk_eth;
 
 /* VLAN ID of the LAN ports (used to pick the PPE account group) */
 u16 mtk_lan_vid = 1;
@@ -645,6 +649,24 @@ static int mtk_ppe_stop(struct mtk_eth *eth)
 	return 0;
 }
 
+/*
+ * Debug tool: full PPE stop + start.  Clears the FOE table and flushes
+ * the PPE cache, allowing a broken BIND flood to be reverted without a
+ * reboot.  Also re-wires the MT7620 eSwitch PPE port.
+ */
+int mtk_ppe_reset(void)
+{
+	int ret;
+
+	if (!sdk_eth)
+		return -ENODEV;
+
+	mtk_ppe_stop(sdk_eth);
+	ret = mtk_ppe_start(sdk_eth);
+
+	return ret;
+}
+
 static void mtk_offload_keepalive(struct fe_priv *eth, unsigned int hash)
 {
 	struct flow_offload *flow;
@@ -733,14 +755,16 @@ mtk_offload_bind_v4(struct fe_priv *eth, struct sk_buff *skb, u32 tag)
 
 	if (skb_vlan_tag_present(skb)) {
 		vlan_layer = 1;
-		vlan1_id = skb_vlan_tag_get(skb) & VLAN_VID_MASK;
+		/* keep the full TCI, like padavan FoeBindToPpe: the PPE
+		 * re-inserts the tag from this word */
+		vlan1_id = skb_vlan_tag_get(skb);
 		iph = ip_hdr(skb);
 	} else if (ethhdr->h_proto == htons(ETH_P_8021Q)) {
 		vlan_layer = 1;
 		vh = (struct vlan_hdr *)(skb->data + ETH_HLEN);
 		if (vh->h_vlan_encapsulated_proto != htons(ETH_P_IP))
 			return -EINVAL;
-		vlan1_id = ntohs(vh->h_vlan_TCI) & VLAN_VID_MASK;
+		vlan1_id = ntohs(vh->h_vlan_TCI);
 		iph = (struct iphdr *)(skb->data + ETH_HLEN + VLAN_HLEN);
 	} else {
 		if (ethhdr->h_proto != htons(ETH_P_IP))
@@ -786,7 +810,18 @@ mtk_offload_bind_v4(struct fe_priv *eth, struct sk_buff *skb, u32 tag)
 	entry->ipv4_hnapt.smac_lo = swab16(*(u16 *)&ethhdr->h_source[4]);
 	entry->ipv4_hnapt.vlan1 = vlan1_id;
 	entry->ipv4_hnapt.vlan2 = 0;
-	entry->ipv4_hnapt.etype = htons(ETH_P_IP);
+	/*
+	 * padavan FoeBindToPpe() writes etype = vlan_tag, i.e. the raw
+	 * 16-bit tag protocol (ETH_P_8021Q) when the packet is VLAN
+	 * tagged and 0 otherwise; it must be stored in host byte order
+	 * because the PPE reads the entry words little-endian.  The old
+	 * htons(ETH_P_IP) made every bound flow emit a malformed frame
+	 * without a proper VLAN tag (stage5 report, test 8).
+	 */
+	if (vlan_layer)
+		entry->ipv4_hnapt.etype = ETH_P_8021Q;
+	else
+		entry->ipv4_hnapt.etype = 0;
 
 	/* bind info block 1 */
 	entry->bfib1.vlan_layer = vlan_layer;
@@ -832,10 +867,19 @@ mtk_offload_tx(struct fe_priv *eth, struct sk_buff *skb)
 	sdk_bind_hint_tx_cnt++;
 
 	if (FIELD_GET(MTK_RXD4_ALG, tag) != 0) {
-		sdk_bind_skip_alg_cnt++;
 		last_tag_alg_val = FIELD_GET(MTK_RXD4_ALG, tag);
-		return 0;
+		/* padavan masks ALG on MT7620 (HNAT_V2), so by default
+		 * an ALG != 0 sample is still a valid bind candidate */
+		if (sdk_bind_alg_enforce) {
+			sdk_bind_skip_alg_cnt++;
+			return 0;
+		}
 	}
+
+	/* master switch: keeps the default build safe (no bind) until
+	 * the etype/vlan fix is validated on the router */
+	if (!sdk_bind_enabled)
+		return 0;
 
 	switch (mtk_offload_bind_v4(eth, skb, tag)) {
 	case 0:
@@ -960,6 +1004,8 @@ int mtk_offload_check_rx(struct fe_priv *eth, struct sk_buff *skb, u32 rxd4)
 int mtk_ppe_probe(struct mtk_eth *eth)
 {
 	int err;
+
+	sdk_eth = eth;
 
 	err = mtk_ppe_start(eth);
 	if (err)
