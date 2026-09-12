@@ -117,7 +117,9 @@ static int mtk_ppe_debugfs_rx_reasons_show(struct seq_file *m, void *private)
 	seq_printf(m, "sdk_bind_hint_tx %u\n", sdk_bind_hint_tx_cnt);
 	seq_printf(m, "sdk_bind_ok %u\n", sdk_bind_ok_cnt);
 	seq_printf(m, "sdk_bind_skip_state %u\n", sdk_bind_skip_state_cnt);
+	seq_printf(m, "sdk_bind_skip_alg %u\n", sdk_bind_skip_alg_cnt);
 	seq_printf(m, "sdk_bind_fail %u\n", sdk_bind_fail_cnt);
+	seq_printf(m, "last_tag_alg %u\n", last_tag_alg_val);
 
 	return 0;
 }

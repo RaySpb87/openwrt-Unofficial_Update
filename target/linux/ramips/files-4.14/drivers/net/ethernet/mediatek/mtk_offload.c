@@ -43,7 +43,9 @@ u32 sdk_bind_hint_post_cnt;
 u32 sdk_bind_hint_tx_cnt;
 u32 sdk_bind_ok_cnt;
 u32 sdk_bind_skip_state_cnt;
+u32 sdk_bind_skip_alg_cnt;
 u32 sdk_bind_fail_cnt;
+u32 last_tag_alg_val;
 
 /* VLAN ID of the LAN ports (used to pick the PPE account group) */
 u16 mtk_lan_vid = 1;
@@ -829,9 +831,11 @@ mtk_offload_tx(struct fe_priv *eth, struct sk_buff *skb)
 	tag = mtk_offload_cb_read(skb);
 	sdk_bind_hint_tx_cnt++;
 
-	/* only plain HNAPT (alg==0) rate-reach samples are bound */
-	if (FIELD_GET(MTK_RXD4_ALG, tag) != 0)
+	if (FIELD_GET(MTK_RXD4_ALG, tag) != 0) {
+		sdk_bind_skip_alg_cnt++;
+		last_tag_alg_val = FIELD_GET(MTK_RXD4_ALG, tag);
 		return 0;
+	}
 
 	switch (mtk_offload_bind_v4(eth, skb, tag)) {
 	case 0:

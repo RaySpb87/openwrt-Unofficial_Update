@@ -151,7 +151,9 @@ extern u32 sdk_bind_hint_post_cnt;
 extern u32 sdk_bind_hint_tx_cnt;
 extern u32 sdk_bind_ok_cnt;
 extern u32 sdk_bind_skip_state_cnt;
+extern u32 sdk_bind_skip_alg_cnt;
 extern u32 sdk_bind_fail_cnt;
+extern u32 last_tag_alg_val;
 
 struct mtk_foe_unbind_info_blk {
 	u32 time_stamp:8;
