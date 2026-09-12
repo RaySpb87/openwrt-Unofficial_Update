@@ -301,17 +301,29 @@ static int mtk_ppe_debugfs_esw_regs_show(struct seq_file *m, void *private)
 	int i;
 
 	seq_printf(m, "pfc 0x%08x\n", mtk_switch_r32(gsw, 0x0004));
-	for (i = 0; i < 8; i++) {
+	/*
+	 * NOTE: only read registers that exist on MT7620N.  Reading the
+	 * port-5 block (0x2500) or the port-7 PMCR (0x3700) wedges the
+	 * eSwitch bus and hangs the router (watchdog reboot).
+	 */
+	for (i = 0; i < 5; i++) {
 		seq_printf(m, "pcr[%d] 0x%08x pvc[%d] 0x%08x ppbv1[%d] 0x%08x\n",
 			   i, mtk_switch_r32(gsw, ESW_PORT_PCR(i)),
 			   i, mtk_switch_r32(gsw, ESW_PORT_PVC(i)),
 			   i, mtk_switch_r32(gsw, ESW_PORT_PPBV1(i)));
 	}
+	seq_printf(m, "pcr[6] 0x%08x pvc[6] 0x%08x ppbv1[6] 0x%08x\n",
+		   mtk_switch_r32(gsw, ESW_PORT_PCR(6)),
+		   mtk_switch_r32(gsw, ESW_PORT_PVC(6)),
+		   mtk_switch_r32(gsw, ESW_PORT_PPBV1(6)));
+	seq_printf(m, "pcr[7] 0x%08x pvc[7] 0x%08x ppbv1[7] 0x%08x\n",
+		   mtk_switch_r32(gsw, ESW_PORT_PCR(7)),
+		   mtk_switch_r32(gsw, ESW_PORT_PVC(7)),
+		   mtk_switch_r32(gsw, ESW_PORT_PPBV1(7)));
 	for (i = 0; i < 6; i++)
 		seq_printf(m, "tpf[%d] 0x%08x\n", i,
 			   mtk_switch_r32(gsw, ESW_TPF(i)));
 	seq_printf(m, "psc_p7 0x%08x\n", mtk_switch_r32(gsw, ESW_PSC_P7));
-	seq_printf(m, "pmcr_p7 0x%08x\n", mtk_switch_r32(gsw, ESW_PMCR_P7));
 	seq_printf(m, "vtcr 0x%08x\n", mtk_switch_r32(gsw, ESW_VLAN_VTCR));
 
 	mtk_esw_dump_vlan(m, gsw, 1);

@@ -106,6 +106,60 @@ mt7620_esw_ppe(bool enable, struct mtk_eth *eth)
 	}
 }
 
+/* switch port control register for a given port index */
+#define MT7620_ESW_PCR(x)		(0x2004 | ((x) << 8))
+/*
+ * Port matrix group for the CPU/PPE ports (6/7): only the data ports
+ * (LAN 0-3 + WAN 4).  Keeping the CPU port 6 in the P7 matrix makes the
+ * eSwitch clone every offloaded frame back to the CPU, which re-injects
+ * it into the PPE -> hang (watchdog reboot) once flows are BIND.
+ */
+#define MT7620_ESW_MATRIX_DATA_PORTS	(0x0f0000 | 0x100000)
+/* PPE queue/UDP control register (pse "UDP Control" fix, SDK) */
+#define MT7620_ESW_PPE_UDP_CTL		0xf80
+
+/*
+ * Ports 6/7 must share one port-matrix group that contains only the data
+ * ports, otherwise the PPE egress path either ghosts the frames or loops
+ * them back to the CPU.  Mirrors padavan PpeSetSwitchVlanChk(); ppe_on:
+ * true = engine enabled (0xc00003 + data members), false = restored.
+ */
+static void
+mt7620_esw_ppe_matrix(bool ppe_on, struct mtk_eth *eth)
+{
+	struct mt7620_gsw *gsw = (struct mt7620_gsw *)eth->soc->swpriv;
+	u32 r6, r7;
+
+	/* leave it alone if already in port matrix mode */
+	r6 = mtk_switch_r32(gsw, MT7620_ESW_PCR(6));
+	if ((r6 & 0x3) == 0x0)
+		return;
+
+	r7 = mtk_switch_r32(gsw, MT7620_ESW_PCR(7));
+
+	r6 &= ~0xff0003;
+	r7 &= ~0xff0003;
+
+	if (ppe_on) {
+		r6 |= 0xc00003 | MT7620_ESW_MATRIX_DATA_PORTS;
+		r7 |= 0xc00003 | MT7620_ESW_MATRIX_DATA_PORTS;
+	} else {
+		r6 |= 0xc00001;
+		r7 |= 0xc00001;
+	}
+
+	mtk_switch_w32(gsw, r6, MT7620_ESW_PCR(6));
+	mtk_switch_w32(gsw, r7, MT7620_ESW_PCR(7));
+}
+
+/* "Turn On UDP Control": clear the buggy-UDP control bit, like the SDK
+ * does for MT7620 revisions >= 5 (the N is always new enough). */
+static void
+mt7620_ppe_udp_ctl(struct mtk_eth *eth)
+{
+	mtk_m32(eth, BIT(30), 0, MT7620_ESW_PPE_UDP_CTL);
+}
+
 static void
 mt7620_ppe_gdm2_fwd(bool enable, struct mtk_eth *eth)
 {
@@ -511,6 +565,12 @@ static int mtk_ppe_start(struct mtk_eth *eth)
 	/* wire the PPE port (port 7) on the ESW side */
 	mt7620_esw_ppe(true, eth);
 
+	/* restrict the CPU/PPE port-matrix group to the data ports */
+	mt7620_esw_ppe_matrix(true, eth);
+
+	/* SDK UDP control fix */
+	mt7620_ppe_udp_ctl(eth);
+
 	/* send all traffic from gdm to the ppe */
 	mt7620_ppe_gdm2_fwd(true, eth);
 #endif
@@ -635,6 +695,8 @@ static int mtk_ppe_stop(struct mtk_eth *eth)
 	/* send all traffic back to the DMA engine */
 #ifdef CONFIG_SOC_MT7620
 	mt7620_esw_ppe(false, eth);
+	/* restore the CPU/PPE port-matrix group */
+	mt7620_esw_ppe_matrix(false, eth);
 	/* keep the PPE ingress path disabled while the PPE is off */
 	mt7620_ppe_gdm2_fwd(false, eth);
 #else
